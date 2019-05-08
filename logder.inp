@@ -1,11 +1,11 @@
 NumParticles	NumChannels	SpatialDim (double-prec)	NumAllChan
-2		          30		        3.d0	   		            	20
+2		          40		        3.d0	   		            	20
 
 mass1		mass2		mass3		mass4
 2.d0		2.d0		-		     -
 
-xMin		xMax		xNumPoints
-1d-1    100d0		10
+xStart		xEnd		xNumPoints
+1d-1     100d0		10
 
 NumBoxes
 100
@@ -22,11 +22,11 @@ Emin    Emax    NumE
 ! SpatialDim (double-prec) = 	Number of spatial dimensions
 ! NumAllChan = 		   	Number of total channels in the input potential file (may be more than what we want to use)
 ! massi =    			mass of ith particle
-! xMin = 			Start of R-matrix prop radius
-! xMax =			End of R-matrix prop radius
+! xStart = 			Start of R-matrix prop radius
+! xEnd =			End of R-matrix prop radius
 ! xNumPoints =			Number of radial grid points per box
 ! NumBoxes =			Number of R-matrix Boxes to be used in the propagator
 !
-! 
+!
 ! Energy =			Energy (the value of 2.5d0 Rydberg used for the Baluja test case)
 !----------------------------------------------------------------------------------------------------
