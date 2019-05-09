@@ -1,17 +1,17 @@
 NumParticles	NumChannels	SpatialDim (double-prec)	NumAllChan
-2		20		3.d0   		            	20
+2		50		3.d0   		            	20
 
 mass1		mass2		mass3		mass4
 2.d0		2.d0		-		     -
 
 xStart		xEnd		PointsPerBox
-5d-2     	200d0		100
+5d-2     	10d0		10
 
 NumBoxes
-200
+100
 
 Emin    Emax    NumE
-1d-3    1d4     20
+1d-3    1d4     100
 
 
 !----------------------------------------------------------------------------------------------------

@@ -227,9 +227,9 @@ CONTAINS
 !      write(6,*) k(i), rm
       CALL hyperrjry(INT(d),alpha,DP%lam(i,oe),k(i)*rm,rhypj,rhypy,rhypjp,rhypyp)
       JJ(i) = rhypj/dsqrt(Pi*k(i))
-      NN(i) = -rhypy/dsqrt(Pi*k(i))
+      NN(i) = rhypy/dsqrt(Pi*k(i))
       JJp(i) = dsqrt(k(i)/Pi)*rhypjp
-      NNp(i) = -dsqrt(k(i)/Pi)*rhypyp
+      NNp(i) = dsqrt(k(i)/Pi)*rhypyp
    ENDDO
    do i=no+1,NumChannels
       Identity(i,i) = 1d0
@@ -344,7 +344,7 @@ program main
      
   call initprop
   call cpu_time(time1)
-  write(6,*) "energy       sigma        time"
+  write(6,"(3A15)") "energy","sigma","time"
   do iE = 1,NumE
      Energy = Egrid(iE)
      do ml=0,lmax
@@ -366,9 +366,9 @@ program main
         SD%sigmatot(DP%ml) = sum(SD%sigma)
      enddo
      call cpu_time(time2)
-     sigmagrandtotal=SD%sigmatot(0)+2*sum(SD%sigmatot(1:NumChannels))
+     sigmagrandtotal=SD%sigmatot(0)+2*sum(SD%sigmatot(1:lmax))
      write(10,*) Energy, sigmagrandtotal
-     WRITE(6,*)  Energy, sigmagrandtotal, time2-time1
+     WRITE(6,"(3D15.6)")  Energy, sigmagrandtotal, time2-time1
   enddo
 
 end program
