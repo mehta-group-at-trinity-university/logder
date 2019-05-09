@@ -183,12 +183,12 @@ CONTAINS
    DEALLOCATE(SD%K,SD%R,SD%f,SD%sigma,SD%S,SD%T,SD%sigmatot)
  END SUBROUTINE DeAllocateScat
   !****************************************************************************************************
- SUBROUTINE CalcK(B,BPD,SD,mu,d,alpha,EE,Eth)
+ SUBROUTINE CalcK(Y,SD,mu,d,alpha,EE,Eth)
    IMPLICIT NONE
    TYPE(ScatData) :: SD
-   DOUBLE PRECISION mu, EE,rm,d,alpha
-   DOUBLE PRECISION, ALLOCATABLE :: s(:),c(:),sp(:),cp(:)
-   DOUBLE PRECISION, ALLOCATABLE :: Imat(:,:),Jmat(:,:)
+   DOUBLE PRECISION mu, EE, rm, d, alpha
+   DOUBLE PRECISION, ALLOCATABLE :: JJ(:),NN(:),JJp(:),NNp(:)
+   !DOUBLE PRECISION, ALLOCATABLE :: Imat(:,:),Jmat(:,:)
    DOUBLE PRECISION rhypj,rhypy,rhypjp,rhypyp,Pi
    DOUBLE PRECISION k(BPD%NumChannels),Eth(BPD%NumChannels)
    complex*16, allocatable :: tmp(:,:),Identity(:,:)

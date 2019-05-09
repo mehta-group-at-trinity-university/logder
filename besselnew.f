@@ -62,9 +62,9 @@ c! This is a subroutine that returns the hyperspherical bessel functions as defi
       order = halfd + lam - 1d0
       call doubfact(d-4,df)
       !call bessik(x,order,i,k,ip,kp)
-!     Inu(x) = exp(x) * alpha(x)
-!     Knu(x) = exp(-x) * beta(x)
-!     This routine returns alpha, beta, alpha', beta', I'/I, and K'/K
+c!     Inu(x) = exp(x) * alpha(x)
+c!     Knu(x) = exp(-x) * beta(x)
+c!     This routine returns alpha, beta, alpha', beta', I'/I, and K'/K
       call MyScaledBessIK(x, order, ai, bk, aip, bkp, ldi,ldk)
 
       prefact = mygamma(halfd-1.d0)*2**(halfd-2d0)/df
@@ -79,9 +79,9 @@ c! This is a subroutine that returns the hyperspherical bessel functions as defi
       rhypkp = x**alpha*(alpha*hypk/x + hypkp)
 
       end
-!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-! This is a subroutine that returns the modified hyperspherical bessel functions.
+c!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c! This is a subroutine that returns the modified hyperspherical bessel functions.
       subroutine hyperik(d,lam,x,hypi,hypk,hypip,hypkp)
       implicit none
       integer d,df
@@ -91,12 +91,12 @@ c! This is a subroutine that returns the hyperspherical bessel functions as defi
       double precision order,prefact
       double precision ai,bk,aip,bkp,ldi,ldk
       halfd=0.5d0*d
-      order = halfd + lam - 1d0
+      order = halfd + lam - 1d0 ! same as l+1/2 for d=3
       call doubfact(d-4,df)
-      !call bessik(x,order,i,k,ip,kp)
-!     Inu(x) = exp(x) * alpha(x)
-!     Knu(x) = exp(-x) * beta(x)
-!     This routine returns alpha, beta, alpha', beta', I'/I, and K'/K
+c      call bessik(x,order,i,k,ip,kp)
+c!     Inu(x) = exp(x) * alpha(x)
+c!     Knu(x) = exp(-x) * beta(x)
+c!     This routine returns alpha, beta, alpha', beta', I'/I, and K'/K
       call MyScaledBessIK(x, order, ai, bk, aip, bkp, ldi,ldk)
 
       prefact = mygamma(halfd-1.d0)*2**(halfd-2d0)/df
