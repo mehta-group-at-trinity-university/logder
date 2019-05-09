@@ -3,6 +3,7 @@ MODULE DipoleDipole
      INTEGER lmax,ml
      DOUBLE PRECISION, ALLOCATABLE :: cllp(:,:,:)
      DOUBLE PRECISION, ALLOCATABLE :: Eth(:)
+     DOUBLE PRECISION, ALLOCATABLE :: lam(:,:)
      LOGICAL even
   END TYPE DPData
 
@@ -13,6 +14,8 @@ CONTAINS
     TYPE(DPData) DP
     ALLOCATE(DP%cllp(0:DP%lmax,0:DP%lmax,0:DP%lmax))
     ALLOCATE(DP%Eth(N))
+    ALLOCATE(DP%lam(N,2))
+
   END SUBROUTINE AllocateDP
 
   SUBROUTINE MakeDipoleDipoleCouplingMatrix(DP)
@@ -26,7 +29,6 @@ CONTAINS
     DP%cllp=0d0
     DO l=0,DP%lmax
        DO lp=MAX(l-2,0),MIN(DP%lmax,l+2),2
-
           prefact=DBLE((2*l+1)*(2*lp+1))
           prefact=dsqrt(prefact)
           DO m = 0,l

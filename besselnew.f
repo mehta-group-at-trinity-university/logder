@@ -14,8 +14,15 @@ c!
       halfd=0.5d0*dble(d)
       order = halfd + lam - 1d0
       call doubfact(d-4,df)
-      !write(6,*) "order=",order, halfd, lam, d
-      call bessjy(x,order,j,y,jp,yp)
+!write(6,*) "order=",order, halfd, lam, d
+
+      if (x.le.1000d0) then
+         call bessjy(x,order,j,y,jp,yp)
+      else
+         call BesselAsymNew(order,x,j,y,jp,yp)
+      endif
+      
+      !call bessjy(x,order,j,y,jp,yp)
       prefact = mygamma(halfd-1.d0)*2**(halfd-2d0)/df
       hypj = prefact*j*x**(-halfd+1d0)
       hypy = prefact*y*x**(-halfd+1d0)
@@ -49,19 +56,22 @@ c! This is a subroutine that returns the hyperspherical bessel functions as defi
       end
 c!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c! This is a subroutine that returns the hyperspherical bessel functions as defined in Avery
-      subroutine hyperrirk(d,alpha,lam,x,rhypi,rhypk,rhypip,rhypkp)
+      subroutine hyperrirk(d,alpha,lam,x,rhypi,rhypk,rhypip,rhypkp,ldrhi,ldrhk)
       implicit none
       integer d,df
       double precision, external :: mygamma
       double precision lam, x, i, k, ip, kp,gam,halfd,alpha
       double precision hypi,hypk,hypip,hypkp
-      double precision rhypi,rhypk,rhypip,rhypkp
+      double precision rhypi,rhypk,rhypip,rhypkp,ldrhi,ldrhk
       double precision order,prefact
       double precision ai,bk,aip,bkp,ldi,ldk
+      integer dfact(12)
+      dfact = (/1, 2, 3, 8, 15, 48, 105, 384, 945, 3840, 10395, 46080/)
       halfd=0.5d0*d
       order = halfd + lam - 1d0
-      call doubfact(d-4,df)
-      !call bessik(x,order,i,k,ip,kp)
+      df=1
+      if((d-4).gt.1) df = dfact(d-4)
+
 c!     Inu(x) = exp(x) * alpha(x)
 c!     Knu(x) = exp(-x) * beta(x)
 c!     This routine returns alpha, beta, alpha', beta', I'/I, and K'/K
@@ -78,6 +88,8 @@ c!     This routine returns alpha, beta, alpha', beta', I'/I, and K'/K
       rhypk = x**alpha*hypk
       rhypkp = x**alpha*(alpha*hypk/x + hypkp)
 
+      ldrhi=dble(6-d)/(2d0*x) + ldi
+      ldrhk=dble(6-d)/(2d0*x) + ldk
       end
 c!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -90,10 +102,13 @@ c! This is a subroutine that returns the modified hyperspherical bessel function
       double precision hypi,hypk,hypip,hypkp
       double precision order,prefact
       double precision ai,bk,aip,bkp,ldi,ldk
+      integer dfact(12)
+      dfact = (/1, 2, 3, 8, 15, 48, 105, 384, 945, 3840, 10395, 46080/)
       halfd=0.5d0*d
       order = halfd + lam - 1d0 ! same as l+1/2 for d=3
-      call doubfact(d-4,df)
-c      call bessik(x,order,i,k,ip,kp)
+      df = 1
+      if((d-4).gt.1) df = dfact(d-4)
+   
 c!     Inu(x) = exp(x) * alpha(x)
 c!     Knu(x) = exp(-x) * beta(x)
 c!     This routine returns alpha, beta, alpha', beta', I'/I, and K'/K
@@ -361,6 +376,70 @@ c$$$  syp=factor*rkp+sk/(2.d0*x)
       ryp=xnu*xi*rymu-ry1
       return
       END SUBROUTINE bessjy
+ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc      
+      subroutine BesselAsymNew(v,x,sj,sy,sjp,syp)
+      integer k,b,kstop
+      double precision v,x,sj,sy,sjp,syp,u
+      double precision P,Q,R,S,pi,factor,chi
+      double precision denomP,denomQ,denomP2,denomQ2
+      double precision Pfunction,Qfunction,sign
+      double precision coefR,coefS,factrl
+
+c     asymptotic expansions from Abramowitz and Stegun, pg. 364
+c     following assumes v = n+1/2 where n=0,1,2,......
+
+      pi = dacos(-1.0d0)
+      factor = dsqrt(2.0d0/(pi*x))
+      chi = x - pi*(0.5d0*v + 0.25d0)
+      u = 4.0d0*v*v
+
+      P = 0.0d0
+      R = 0.0d0
+      do k=0,int(v/2.d0-0.25d0)
+         sign = (-1.0d0)**k
+         denomP = (2.0d0*x)**(2*k)
+         denomP2 = factrl(2*k)
+         coefR = (u-1.0d0+16.0d0*dfloat(k*k))/
+     .       (u-(4.0d0*dfloat(k)-1.0d0)*(4.0d0*dfloat(k)-1.0d0))
+         Pfunction = 1.0d0
+         do b=0,4*k-1
+          Pfunction = Pfunction*(v-0.5d0+float(2*k-b))
+         enddo
+      P = P + sign*Pfunction/(denomP*denomP2)
+      R = R + sign*coefR*Pfunction/(denomP*denomP2)
+      enddo
+
+      Q = 0.0d0
+      S = 0.0d0
+      do k=0,int(v/2.d0-0.75d0)
+         sign = (-1.0d0)**k
+         denomQ = denomP*(2.0d0*x)
+         denomQ2 = factrl(2*k+1)
+         coefS = (u+4.0d0*(2.0d0*dfloat(k)+1.0d0)*(2.0d0*dfloat(k)+1.0d0)-
+     .           1.0d0)/(u-(4.0d0*dfloat(k)+1.0d0)*(4.0d0*dfloat(k)+1.0d0))
+         Qfunction = 1.0d0
+         do b=0,4*k+1
+         Qfunction = Qfunction*(v+0.5d0+float(2*k-b))
+         enddo       
+      Q = Q + sign*Qfunction/(denomQ*denomQ2)
+      S = S + sign*coefS*Qfunction/(denomQ*denomQ2)
+      enddo
+
+
+      if (v.eq.0.5d0) then
+         R = 1.d0
+         S = 1.d0/(2.d0*x)
+      endif
+
+      sj = factor*(P*dcos(chi) - Q*dsin(chi)) 
+      sy = factor*(P*dsin(chi) + Q*dcos(chi))
+      sjp=-factor*(R*dsin(chi) - S*dcos(chi))
+      syp= factor*(R*dcos(chi) - S*dsin(chi))
+
+      return
+      end
+
+
 !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       SUBROUTINE beschb(x,gam1,gam2,gampl,gammi)
       INTEGER NUSE1,NUSE2
@@ -640,3 +719,26 @@ C  (C) Copr. 1986-92 Numerical Recipes Software v%1jw#<0(9p#3.
       double precision gammln, xx
       mygamma = dexp(gammln(xx))
       end
+      
+      double precision FUNCTION factrl(n)
+      INTEGER n
+CU    USES gammln
+      INTEGER j,ntop
+      double precision a(33),gammln
+      SAVE ntop,a
+      DATA ntop,a(1)/0,1./
+      if (n.lt.0) then
+        pause 'negative factorial in factrl'
+      else if (n.le.ntop) then
+        factrl=a(n+1)
+      else if (n.le.32) then
+        do 11 j=ntop+1,n
+          a(j+1)=j*a(j)
+11      continue
+        ntop=n
+        factrl=a(n+1)
+      else
+        factrl=exp(gammln(float(n)+1.0d0))
+      endif
+      return
+      END
