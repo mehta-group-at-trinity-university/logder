@@ -138,7 +138,7 @@ contains
       yprevious = ycurrent
     enddo
     yf = ycurrent
-
+    
   end subroutine boxstep
 end module logderprop
 !============================================================================================
@@ -338,9 +338,9 @@ program main
   call MakePot(PotOdd,x,DP,BoxGrid)
   call cpu_time(time2)
   write(6,*) "time for potential calculation:", time2-time1
-!  do ml=0,3
-!     call checkpot(PotEven(:,:,:,:,ml),x,101)
-!  enddo
+  do ml=0,3
+     call checkpot(PotEven(:,:,:,:,ml),x,101)
+  enddo
      
   call initprop
   call cpu_time(time1)
@@ -360,9 +360,9 @@ program main
 !!$        write(6,*) Energy, ml, "K-matrix:"
 !!$        write(6,*) "================================="
 !!$        call printmatrix(SD%K,NumChannels,NumChannels,6)
-!!$        write(6,*) Energy, ml, "Y-matrix:"
-!!$        write(6,*) "================================="
-!!$        call printmatrix(yout,NumChannels,NumChannels,6)
+        write(6,*) Energy, ml, "Y-matrix:"
+        write(6,*) "================================="
+        call printmatrix(yout,NumChannels,NumChannels,6)
         SD%sigmatot(DP%ml) = sum(SD%sigma)
      enddo
      call cpu_time(time2)
@@ -446,7 +446,7 @@ subroutine MakePot(Pot,x,DP,BoxGrid)
         ENDIF
         do iBox=1,NumBoxes
           do step=1,PointsPerBox
-            Pot(mch,nch,step,iBox,ml) = -2d0*DP%Cllp(l,lp,ml)*xm3(step,iBox)**3
+            Pot(mch,nch,step,iBox,ml) = -2d0*DP%Cllp(l,lp,ml)*xm3(step,iBox)
             IF(mch.EQ.nch) Pot(mch,nch,step,iBox,ml) = Pot(mch,nch,step,iBox,ml) + 0.5d0*l*(l+1)*xm2(step,iBox)
             Pot(nch,mch,step,iBox,ml) = Pot(mch,nch,step,iBox,ml)
           enddo
