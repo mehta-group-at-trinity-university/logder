@@ -124,9 +124,9 @@ contains
     yprevious = yi
     do step = 2, PointsPerBox-1,2
        
-        VV(:,:,step)=2d0*mu*(identity*Energy-Pot(:,:,step))
+        VV(:,:,step)=2d0*mu*(identity*Energy)!-Pot(:,:,step))
         u(:,:,step)=VV(:,:,step)
-        VV(:,:,step+1)=2d0*mu*(identity*Energy-Pot(:,:,step+1))
+        VV(:,:,step+1)=2d0*mu*(identity*Energy)!-Pot(:,:,step+1))
         temp = identity + h**2/6d0 * VV(:,:,step+1)
         call sqrmatinv(temp,NumChannels)
         u(:,:,step+1)=MATMUL(temp,VV(:,:,step+1))
@@ -348,6 +348,7 @@ program main
   write(6,"(3A15)") "energy","sigma","time"
   do iE = 1,NumE
      Energy = Egrid(iE)
+     SD%sigmatot=0d0
      do ml=0,lmax
         DP%ml=ml
         DP%even = .true.
@@ -357,6 +358,7 @@ program main
            yin = yout
            !write(6,*)"ml, iBox=", ml, iBox
         enddo
+        SD%sigma=0d0
         call CalcK(yout,BoxGrid(NumBoxes+1),SD,DP,mu,EffDim,AlphaFactor,Energy,DP%Eth,NumChannels,NumChannels)
 !!$        write(6,*) Energy, ml, "K-matrix:"
 !!$        write(6,*) "================================="
@@ -447,7 +449,7 @@ subroutine MakePot(Pot,x,DP,BoxGrid)
         ENDIF
         do iBox=1,NumBoxes
           do step=1,PointsPerBox
-            !Pot(mch,nch,step,iBox,ml) = -2d0*DP%Cllp(l,lp,ml)*xm3(step,iBox)**3
+!            Pot(mch,nch,step,iBox,ml) = -2d0*DP%Cllp(l,lp,ml)*xm3(step,iBox)
             IF(mch.EQ.nch) Pot(mch,nch,step,iBox,ml) = Pot(mch,nch,step,iBox,ml) + 0.5d0*l*(l+1)*xm2(step,iBox)
             Pot(nch,mch,step,iBox,ml) = Pot(mch,nch,step,iBox,ml)
           enddo
