@@ -41,29 +41,22 @@
       RETURN
     END FUNCTION Morse1
 
-    SUBROUTINE SetMorsePotential(BPD,M)
+    SUBROUTINE SetMorsePotential(VPot,M,NPTS,x)
 
       IMPLICIT NONE
-      TYPE(BPData) BPD
       TYPE(Morse), INTENT(in) :: M
-      INTEGER kx,lx,mch,nch,NChan
-      DOUBLE PRECISION ax,bx,xScaledZero,pot(3,3)
-      DOUBLE PRECISION xScale(BPD%xNumPoints)
+      INTEGER kx,mch,nch,NChan,NPTS
+      DOUBLE PRECISION pot(3,3),VPot(3,3,NPTS)
+      DOUBLE PRECISION x(NPTS)
       Nchan=3
-      BPD%Pot(:,:,:,:) = 0d0
+      VPot(:,:,:) = 0d0
 
-      DO kx = 1,BPD%xNumPoints-1
-         ax = BPD%xPoints(kx)
-         bx = BPD%xPoints(kx+1)
-         xScale(kx) = 0.5d0*(bx-ax)
-         xScaledZero = 0.5d0*(bx+ax)
-         DO lx = 1,LegPoints
-            BPD%x(lx,kx) = xScale(kx)*xLeg(lx) + xScaledZero
-            DO mch = 1,NChan
-               BPD%Pot(mch,mch,lx,kx) = Morse1(M%a(mch,mch),M%D(mch),M%rc(mch,mch),BPD%x(lx,kx)) + M%Eth(mch)
+      DO kx = 1,NPTS
+         DO mch = 1,NChan
+               VPot(mch,mch,lx,kx) = Morse1(M%a(mch,mch),M%D(mch),M%rc(mch,mch),x(kx)) + M%Eth(mch)  ! Diagonal Morse potential
                DO nch = 1, mch-1
-                  BPD%Pot(mch,nch,lx,kx) = M%V(mch,nch)*dexp(-(BPD%x(lx,kx)-M%rc(mch,nch))**2/M%a(mch,nch)**2)
-                  BPD%Pot(nch,mch,lx,kx) = BPD%Pot(mch,nch,lx,kx)
+                  VPot(mch,nch,kx) = M%V(mch,nch)*dexp(-(x(kx)-M%rc(mch,nch))**2/M%a(mch,nch)**2)  ! Gaussian off-diagonal couplings
+                  VPot(nch,mch,kx) = VPot(mch,nch,kx)
                ENDDO
             ENDDO
          ENDDO

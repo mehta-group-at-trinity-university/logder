@@ -85,7 +85,7 @@ contains
     allocate(ycurrent(NumChannels,NumChannels))
     allocate(yprevious(NumChannels,NumChannels))
     allocate(ystart(NumChannels,NumChannels))
-    allocate(weights(PointsPerBox))
+    allocate(weights(0:PointsPerBox))
   end subroutine allocateprop
   subroutine initprop
     implicit none
@@ -93,8 +93,8 @@ contains
 
     call allocateprop
 
-    weights(1)=1d0
-    do i = 2, PointsPerBox-1,2
+    weights(0)=1d0
+    do i = 1, PointsPerBox-1,2
        weights(i)=4d0
        weights(i+1)=2d0
     enddo
@@ -122,20 +122,20 @@ contains
     h=xx(2)-xx(1)
 
     yprevious = yi
-    do step = 2, PointsPerBox-1,2
-        VV(:,:,step)=2d0*mu*(identity*Energy-Pot(:,:,step))
-        u(:,:,step)=VV(:,:,step)
-        VV(:,:,step+1)=2d0*mu*(identity*Energy-Pot(:,:,step+1))
-        temp = identity + h**2/6d0 * VV(:,:,step+1)
-        call sqrmatinv(temp,NumChannels)
-        u(:,:,step+1)=MATMUL(temp,VV(:,:,step+1))
+    do step = 1, PointsPerBox-1,2
+       VV(:,:,step)=2d0*mu*(identity*Energy-Pot(:,:,step))
+       VV(:,:,step+1)=2d0*mu*(identity*Energy-Pot(:,:,step+1))
+       u(:,:,step+1)=VV(:,:,step+1)
+       temp = identity + h**2/6d0 * VV(:,:,step)
+       call sqrmatinv(temp,NumChannels)
+       u(:,:,step)=MATMUL(temp,VV(:,:,step))
     enddo
 
-    do step = 2, PointsPerBox
-      temp = identity + h*yprevious
-      call sqrmatinv(temp,NumChannels)
-      ycurrent = MATMUL(temp,yprevious) - onethird*h*weights(step)*u(:,:,step)
-      yprevious = ycurrent
+    do step = 1, PointsPerBox
+       temp = identity + h*yprevious
+       call sqrmatinv(temp,NumChannels)
+       ycurrent = MATMUL(temp,yprevious) - onethird*h*weights(step)*u(:,:,step)
+       yprevious = ycurrent
     enddo
     yf = ycurrent
     
@@ -333,16 +333,16 @@ program main
   PotEven=0d0
   PotOdd=0d0
   DP%even = .true.
-  call MakePot(PotEven,x,DP,BoxGrid)
+  call MakeDipolePot(PotEven,x,DP,BoxGrid)
   DP%even = .false.
-  call MakePot(PotOdd,x,DP,BoxGrid)
+  call MakeDipolePot(PotOdd,x,DP,BoxGrid)
   call cpu_time(time2)
   write(6,*) "time for potential calculation:", time2-time1
   do ml=0,3
      call checkpot(PotEven(:,:,:,:,ml),x,101)
   enddo
      
-  call initprop
+  call initprop  ! sets the weights and the initial Y matrix.
   call cpu_time(time1)
   write(6,"(3A15)") "energy","sigma","time"
   do iE = 1,NumE
@@ -415,7 +415,7 @@ SUBROUTINE GridMaker(grid,numpts,E1,E2,scale)
 END SUBROUTINE GridMaker
 
 
-subroutine MakePot(Pot,x,DP,BoxGrid)
+subroutine MakeDipolePot(Pot,x,DP,BoxGrid)
   use GlobalVars
   use DipoleDipole
   implicit none
@@ -454,7 +454,7 @@ subroutine MakePot(Pot,x,DP,BoxGrid)
      ENDDO
     ENDDO
   enddo
-end subroutine MakePot
+end subroutine MakeDipolePot
 !=========================================================================================
 SUBROUTINE printmatrix(M,nr,nc,file)
   IMPLICIT NONE
