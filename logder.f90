@@ -1,13 +1,5 @@
 !****************************************************************************************************
-module datastructures
- TYPE ScatData
 
-   DOUBLE PRECISION, ALLOCATABLE :: K(:,:), R(:,:), sigma(:,:), sigmatot(:)
-   complex*16, ALLOCATABLE :: f(:,:), S(:,:), T(:,:)
- END TYPE ScatData
-
-
-end module datastructures
 MODULE GlobalVars
   use datastructures
   IMPLICIT NONE
@@ -17,7 +9,7 @@ MODULE GlobalVars
   DOUBLE PRECISION AlphaFactor ! This is the parameter that appears in the reduced wavefunction u(R) = R^(AlphaFactor) Psi(R)
   ! Typical choice is either AlphaFactor = 0 (reduced wavefunction = wavefunction), or AlphaFactor = (EffDim - 1)/2 (eliminates 1st derivative terms from KE)
   !----------------------------------------------------------------------------------------------------
-  DOUBLE PRECISION mu, xStart, xEnd, energy,onethird
+  DOUBLE PRECISION mu, xStart, xEnd, energy,onethird,onesixth
   DOUBLE PRECISION SpatialDim, EffDim, Emin, Emax
   DOUBLE PRECISION, ALLOCATABLE :: mass(:)
   CHARACTER*64 InputFile
@@ -62,6 +54,8 @@ CONTAINS
     END IF
 
     onethird = 0.3333333333333333333333333d0
+    onesixth = onethird*0.5d0
+    
   END SUBROUTINE ReadGlobal
     !****************************************************************************************************
 END MODULE GlobalVars
@@ -85,7 +79,7 @@ contains
     allocate(ycurrent(NumChannels,NumChannels))
     allocate(yprevious(NumChannels,NumChannels))
     allocate(ystart(NumChannels,NumChannels))
-    allocate(weights(0:PointsPerBox))
+    allocate(weights(PointsPerBox))
   end subroutine allocateprop
   subroutine initprop
     implicit none
@@ -93,7 +87,7 @@ contains
 
     call allocateprop
 
-    weights(0)=1d0
+!    weights(0)=1d0
     do i = 1, PointsPerBox-1,2
        weights(i)=4d0
        weights(i+1)=2d0
@@ -103,6 +97,7 @@ contains
     identity = 0d0
     yprevious = 0d0
     ycurrent = 0d0
+    ystart = 0d0
     do i=1,NumChannels
       identity(i,i)=1d0
       ystart(i,i)=1d20
@@ -140,6 +135,8 @@ contains
     yf = ycurrent
     
   end subroutine boxstep
+  !****************************************************************************************************
+
 end module logderprop
 !============================================================================================
 
@@ -148,48 +145,42 @@ module scattering
   !****************************************************************************************************
 
 CONTAINS
- !****************************************************************************************************
- SUBROUTINE AllocateScat(SD,N)
-   IMPLICIT NONE
-   TYPE(ScatData) SD
-   INTEGER N
-   ALLOCATE(SD%K(N,N),SD%R(N,N),SD%sigma(N,N))
-   ALLOCATE(SD%f(N,N),SD%S(N,N),SD%T(N,N))
-   ALLOCATE(SD%sigmatot(0:2*N))
-   SD%K=0d0
-   SD%R=0d0
-   SD%f=0d0
-   SD%sigma=0d0
-   SD%S=(0d0,0d0)
-   SD%T=(0d0,0d0)
- END SUBROUTINE AllocateScat
- !****************************************************************************************************
- SUBROUTINE DeAllocateScat(SD)
-   IMPLICIT NONE
-   TYPE(ScatData) SD
-   DEALLOCATE(SD%K,SD%R,SD%f,SD%sigma,SD%S,SD%T,SD%sigmatot)
- END SUBROUTINE DeAllocateScat
+!!$ !****************************************************************************************************
+!!$ SUBROUTINE AllocateScat(SD,N)
+!!$   IMPLICIT NONE
+!!$   TYPE(ScatData) SD
+!!$   INTEGER N
+!!$   ALLOCATE(SD%K(N,N),SD%R(N,N),SD%sigma(N,N))
+!!$   ALLOCATE(SD%f(N,N),SD%S(N,N),SD%T(N,N))
+!!$   ALLOCATE(SD%sigmatot(0:2*N))
+!!$   SD%K=0d0
+!!$   SD%R=0d0
+!!$   SD%f=0d0
+!!$   SD%sigma=0d0
+!!$   SD%S=(0d0,0d0)
+!!$   SD%T=(0d0,0d0)
+!!$ END SUBROUTINE AllocateScat
+!!$ !****************************************************************************************************
+!!$ SUBROUTINE DeAllocateScat(SD)
+!!$   IMPLICIT NONE
+!!$   TYPE(ScatData) SD
+!!$   DEALLOCATE(SD%K,SD%R,SD%f,SD%sigma,SD%S,SD%T,SD%sigmatot)
+!!$ END SUBROUTINE DeAllocateScat
   !****************************************************************************************************
- SUBROUTINE CalcK(Y,rm,SD,DP,mu,d,alpha,EE,Eth,NumChannels,NumOpen)
-   use DipoleDipole
+ SUBROUTINE CalcK(Y,rm,SD,mu,d,alpha,EE,Eth,NumChannels,NumOpen)
+!   use DipoleDipole
    IMPLICIT NONE
    TYPE(ScatData) :: SD
-   type(DPData) :: DP
+
    DOUBLE PRECISION mu, EE, rm, d, alpha,Y(NumChannels,NumChannels)
    DOUBLE PRECISION, ALLOCATABLE :: JJ(:),NN(:),JJp(:),NNp(:)
-   !DOUBLE PRECISION, ALLOCATABLE :: Imat(:,:),Jmat(:,:)
    double precision, allocatable :: Ktemp1(:,:),Ktemp2(:,:)
-   DOUBLE PRECISION rhypj,rhypy,rhypjp,rhypyp,Pi,ldrhk,ldrhi
+   DOUBLE PRECISION rhypj,rhypy,rhypjp,rhypyp,Pi,rhypi,rhypk,rhypip,rhypkp,ldrhk,ldrhi
    DOUBLE PRECISION k(NumChannels),Eth(NumChannels)
    complex*16, allocatable :: tmp(:,:),Identity(:,:)
    complex*16  II
-   INTEGER i,j,no,nw,nc,beta,NumChannels,NumOpen,oe
+   INTEGER i,j,no,nw,nc,beta,NumChannels,NumOpen
 
-   if(DP%even) then
-      oe=2
-   else
-      oe=1
-   endif
    
    II=(0d0,1d0)
    Pi=dacos(-1d0)
@@ -213,9 +204,10 @@ CONTAINS
       WRITE(6,*) "Channel miscount in calcK"
       STOP
    ENDIF
-   !write(6,*) "no = ", no
-
-   ALLOCATE(JJ(NumChannels),NN(NumChannels),tmp(NumChannels,NumChannels))
+!   write(6,*) "no = ", no
+!   deallocate(SD%S)
+!   allocate(SD%S(no,no))
+   ALLOCATE(JJ(NumChannels),NN(NumChannels),tmp(no,no))
    ALLOCATE(JJp(NumChannels),NNp(NumChannels))
    allocate(Ktemp1(NumChannels,NumChannels))
    allocate(Ktemp2(NumChannels,NumChannels))
@@ -224,151 +216,121 @@ CONTAINS
 
    DO i = 1,no
       Identity(i,i) = 1d0
-!      write(6,*) k(i), rm
-      CALL hyperrjry(INT(d),alpha,DP%lam(i,oe),k(i)*rm,rhypj,rhypy,rhypjp,rhypyp)
+      !write(6,*) k(i), rm
+      CALL hyperrjry(INT(d),alpha,0d0,k(i)*rm,rhypj,rhypy,rhypjp,rhypyp)
       JJ(i) = rhypj/dsqrt(Pi*k(i))
-      NN(i) = rhypy/dsqrt(Pi*k(i))
+      NN(i) = -rhypy/dsqrt(Pi*k(i))
       JJp(i) = dsqrt(k(i)/Pi)*rhypjp
-      NNp(i) = dsqrt(k(i)/Pi)*rhypyp
+      NNp(i) = -dsqrt(k(i)/Pi)*rhypyp
    ENDDO
    do i=no+1,NumChannels
       Identity(i,i) = 1d0
-      CALL hyperrirk(INT(d),alpha,DP%lam(i,oe),k(i)*rm,rhypj,rhypy,ldrhi,ldrhk)
-      JJ(i) = 1d0!rhypj/dsqrt(Pi*k(i))
-      NN(i) = 1d0!-rhypy/dsqrt(Pi*k(i))
-      JJp(i) = ldrhi!dsqrt(k(i)/Pi)*rhypjp
-      NNp(i) = ldrhk!-dsqrt(k(i)/Pi)*rhypyp
+      CALL hyperrirk(INT(d),alpha,0d0,k(i)*rm,rhypi,rhypk,rhypip,rhypkp,ldrhi,ldrhk)
+      JJ(i) = 1d0!rhypi/dsqrt(Pi*k(i))
+      NN(i) = -1d0!-rhypk/dsqrt(Pi*k(i))
+      JJp(i) = ldrhi!dsqrt(k(i)/Pi)*rhypip
+      NNp(i) = ldrhk!-dsqrt(k(i)/Pi)*rhypkp
    ENDDO
 
    Ktemp1=0d0
    Ktemp2=0d0
    SD%K=0d0
    do i=1,NumChannels
-      Ktemp1(i,i) = -NNp(i)
-      Ktemp2(i,i) = -JJp(i)
+      Ktemp1(i,i) = NNp(i)
+      Ktemp2(i,i) = JJp(i)
       do j=1,NumChannels
-         Ktemp1(i,j) = Ktemp1(i,j) + Y(i,j)*NN(j)
-         Ktemp2(i,j) = Ktemp2(i,j) + Y(i,j)*JJ(j)
+         Ktemp1(i,j) = Ktemp1(i,j) - Y(i,j)*NN(j)
+         Ktemp2(i,j) = Ktemp2(i,j) - Y(i,j)*JJ(j)
       enddo
    enddo
    call sqrmatinv(Ktemp1,NumChannels)
    SD%K = -MATMUL(Ktemp1,Ktemp2)
    
-!!$   Imat=0d0
-!!$   Jmat=0d0
-!!$   DO i=1,no
-!!$      DO beta=1,no
-!!$         Imat(i,beta) = (B%Zf(i,beta)*cp(i) - B%Zfp(i,beta)*c(i))/(s(i)*cp(i)-c(i)*sp(i))
-!!$         Jmat(i,beta) = (B%Zf(i,beta)*sp(i) - B%Zfp(i,beta)*s(i))/(c(i)*sp(i)-s(i)*cp(i))
-!!$      ENDDO
-!!$   ENDDO
 
-!!$   CALL SqrMatInv(Imat, no)
-!!$   SD%K = MATMUL(Jmat,Imat)
-
-!!$   SD%R=0.0d0
-!!$   DO i=1,B%NumOpenR
-!!$      DO j=1,B%NumOpenR
-!!$         DO beta = 1, B%NumOpenR
-!!$            SD%R(i,j) = SD%R(i,j) - B%Zf(i,beta)*B%Zf(j,beta)/B%bf(beta) !
-!!$         ENDDO
-!!$      ENDDO
-!!$   ENDDO
-
-   tmp = Identity - II*SD%K
+   !tmp = Identity(1:no,1:no) - II*SD%K(1:no,1:no)
    !write(6,*) "Identity matrix:"
    !call printmatrix(Identity,no,no,6)
-   !write(6,*) "K matrix:"
-   !call printmatrix(SD%K,no,no,6)
+!   write(6,*) "K matrix:"
+!   call printmatrix(SD%K,no,no,6)
    !write(6,*) "real part of 1 - II*K"
    !call printmatrix(realpart(tmp),no,no,6)
    !write(6,*) "Imaginary part of 1 - II*K"
    !call printmatrix(aimag(tmp),no,no,6)
-   SD%S = Identity + II*SD%K
-   call CompSqrMatInv(tmp,no)
-   SD%S = MATMUL(SD%S,tmp)
-   SD%T = -II*0.5d0*(SD%S-Identity)
+!   SD%S(1:no,1:no) = Identity(1:no,1:no) + II*SD%K(1:no,1:no)
+!   call CompSqrMatInv(tmp,no)
+!   SD%S = MATMUL(SD%S,tmp)
+!   SD%T = -II*0.5d0*(SD%S-Identity)
 
-   SD%sigma = conjg(SD%T)*SD%T*Pi/(2d0*mu*EE)
+!   SD%sigma = conjg(SD%T)*SD%T*Pi/(2d0*mu*EE)
+   SD%tandel = SD%K(1,1)
+   SD%delta = atan(SD%tandel)
+   SD%sindel = sin(SD%delta)
+   SD%sin2del = SD%sindel**2
 
-!   DEALLOCATE(s,c,Imat,Jmat,sp,cp)
  END SUBROUTINE CalcK
 end module scattering
 !=========================================================================================
 program main
+
   use GlobalVars
-  use DipoleDipole
+
+  use MorsePotential
   use logderprop
   use scattering
   implicit none
-  type(DPData) DP
+  type(Morse) M
   type(ScatData) SD
-  double precision, allocatable :: PotOdd(:,:,:,:,:), PotEven(:,:,:,:,:), BoxGrid(:)
+  double precision, allocatable :: VPot(:,:,:)
+  double precision, allocatable :: BoxGrid(:)
   double precision, allocatable :: x(:,:),yin(:,:),yout(:,:),Egrid(:)
   double precision time1, time2, sigmagrandtotal
   integer iBox,ml,iE
 
   InputFile = 'logder.inp'
   call ReadGlobal()
-  DP%lmax=lmax
-  allocate(PotOdd(NumChannels,NumChannels,PointsPerBox,NumBoxes,0:lmax))
-  allocate(PotEven(NumChannels,NumChannels,PointsPerBox,NumBoxes,0:lmax))
+
+  allocate(VPot(NumChannels,NumChannels,PointsPerBox))
   allocate(BoxGrid(NumBoxes+1))
   allocate(yin(NumChannels,NumChannels),yout(NumChannels,NumChannels))
   allocate(x(PointsPerBox,NumBoxes))
   allocate(Egrid(NumE))
-  call GridMaker(Egrid,NumE,EMin,EMax,"log")
-  call AllocateDP(DP,NumChannels)
-  call AllocateScat(SD,NumChannels)
-  call MakeDipoleDipoleCouplingMatrix(DP)
-!  do ml = 0,lmax
-!     write(6,*) "cllp, m=",ml
-!     call printmatrix(DP%cllp(0:lmax,0:lmax,ml),lmax+1,lmax+1,6)     
-!  enddo
-!  stop
-  call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"quadratic")
-!  call printmatrix(BoxGrid,NumBoxes+1,1,6)
 
-  call cpu_time(time1)
-  PotEven=0d0
-  PotOdd=0d0
-  DP%even = .true.
-  call MakeDipolePot(PotEven,x,DP,BoxGrid)
-  DP%even = .false.
-  call MakeDipolePot(PotOdd,x,DP,BoxGrid)
-  call cpu_time(time2)
-  write(6,*) "time for potential calculation:", time2-time1
-  do ml=0,3
-     call checkpot(PotEven(:,:,:,:,ml),x,101)
-  enddo
+  call AllocateScat(SD,NumChannels)
+  call InitMorse(M)
+  call GridMaker(Egrid,NumE,M%Eth(1)+0.001d0,M%Eth(2)-0.001d0,"linear")
+  call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"linear")
+  call printmatrix(BoxGrid,NumBoxes+1,1,6)
      
   call initprop  ! sets the weights and the initial Y matrix.
   call cpu_time(time1)
-  write(6,"(3A15)") "energy","sigma","time"
+!  write(6,"(3A15)") "energy","sigma","time"
   do iE = 1,NumE
      Energy = Egrid(iE)
-     do ml=0,lmax
-        DP%ml=ml
-        DP%even = .true.
+     do ml=0,0
         yin = ystart
+!!$        write(6,*) Energy, ml, "Y-matrix START:"
+!!$        write(6,*) "================================="
+!!$        call printmatrix(yin,NumChannels,NumChannels,6)
+
         do iBox=1,NumBoxes
-           call boxstep(x(:,iBox),yin,yout,PotEven(:,:,:,iBox,ml))
+           call SetMorsePotential(VPot,M,PointsPerBox,x(:,iBox),BoxGrid(iBox),BoxGrid(iBox+1))
+           call boxstep(x(:,iBox),yin,yout,VPot)
            yin = yout
+!!$           write(6,*) Energy, ml, "Y-matrix:"
+!!$           write(6,*) "================================="
+!!$           call printmatrix(yout,NumChannels,NumChannels,6)
+
            !write(6,*)"ml, iBox=", ml, iBox
         enddo
-        call CalcK(yout,BoxGrid(NumBoxes+1),SD,DP,mu,EffDim,AlphaFactor,Energy,DP%Eth,NumChannels,NumChannels)
+        call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,M%Eth,NumChannels,NumChannels)
 !!$        write(6,*) Energy, ml, "K-matrix:"
 !!$        write(6,*) "================================="
 !!$        call printmatrix(SD%K,NumChannels,NumChannels,6)
-        write(6,*) Energy, ml, "Y-matrix:"
-        write(6,*) "================================="
-        call printmatrix(yout,NumChannels,NumChannels,6)
-        SD%sigmatot(DP%ml) = sum(SD%sigma)
+        SD%sigmatot(0) = sum(SD%sigma)
      enddo
      call cpu_time(time2)
-     sigmagrandtotal=SD%sigmatot(0)+2*sum(SD%sigmatot(1:lmax))
-     write(10,*) Energy, sigmagrandtotal
-     WRITE(6,"(3D15.6)")  Energy, sigmagrandtotal, time2-time1
+     write(10,*) Energy, SD%K(1,1)
+     WRITE(6,"(3D15.6)")  Energy, SD%K(1,1)
   enddo
 
 end program
@@ -415,46 +377,46 @@ SUBROUTINE GridMaker(grid,numpts,E1,E2,scale)
 END SUBROUTINE GridMaker
 
 
-subroutine MakeDipolePot(Pot,x,DP,BoxGrid)
-  use GlobalVars
-  use DipoleDipole
-  implicit none
-  double precision Pot(NumChannels,NumChannels,PointsPerBox,NumBoxes,0:lmax),BoxGrid(NumBoxes+1)
-  double precision x(PointsPerBox,NumBoxes),xm2(PointsPerBox,NumBoxes),xm3(PointsPerBox,NumBoxes)
-  integer mch,nch,ml,l,lp,step,ibox
-  type(DPData) DP
-
-  do ibox=1,NumBoxes
-    do step=1,PointsPerBox
-      call GridMaker(x(:,iBox),PointsPerBox,BoxGrid(iBox),BoxGrid(iBox+1),"linear")
-      xm2(:,iBox)=1d0/x(:,iBox)**2
-      xm3(:,iBox)=1d0/x(:,iBox)**3
-    enddo
-  enddo
-
-  do ml=0,lmax
-    DO mch = 1,NumChannels
-      DO nch = 1, mch
-        IF(DP%even) THEN
-          l=2*(mch-1) ! l = 0, 2, 4, ...
-          lp=2*(nch-1) ! l' = 0, 2, 4, ...
-          DP%lam(mch,2) = l
-        ELSE
-          l=2*(mch-1)+1 ! l = 1, 3, 5, ...
-          lp=2*(nch-1)+1 ! l' = 1, 3, 5, ...
-          DP%lam(mch,1) = l
-        ENDIF
-        do iBox=1,NumBoxes
-          do step=1,PointsPerBox
-            Pot(mch,nch,step,iBox,ml) = -2d0*DP%Cllp(l,lp,ml)*xm3(step,iBox)
-            IF(mch.EQ.nch) Pot(mch,nch,step,iBox,ml) = Pot(mch,nch,step,iBox,ml) + 0.5d0*l*(l+1)*xm2(step,iBox)
-            Pot(nch,mch,step,iBox,ml) = Pot(mch,nch,step,iBox,ml)
-          enddo
-        enddo
-     ENDDO
-    ENDDO
-  enddo
-end subroutine MakeDipolePot
+!!$subroutine MakeDipolePot(Pot,x,DP,BoxGrid)
+!!$  use GlobalVars
+!!$!  use DipoleDipole
+!!$  implicit none
+!!$  double precision Pot(NumChannels,NumChannels,PointsPerBox,NumBoxes,0:lmax),BoxGrid(NumBoxes+1)
+!!$  double precision x(PointsPerBox,NumBoxes),xm2(PointsPerBox,NumBoxes),xm3(PointsPerBox,NumBoxes)
+!!$  integer mch,nch,ml,l,lp,step,ibox
+!!$  type(DPData) DP
+!!$
+!!$  do ibox=1,NumBoxes
+!!$    do step=1,PointsPerBox
+!!$      call GridMaker(x(:,iBox),PointsPerBox,BoxGrid(iBox),BoxGrid(iBox+1),"linear")
+!!$      xm2(:,iBox)=1d0/x(:,iBox)**2
+!!$      xm3(:,iBox)=1d0/x(:,iBox)**3
+!!$    enddo
+!!$  enddo
+!!$
+!!$  do ml=0,lmax
+!!$    DO mch = 1,NumChannels
+!!$      DO nch = 1, mch
+!!$        IF(DP%even) THEN
+!!$          l=2*(mch-1) ! l = 0, 2, 4, ...
+!!$          lp=2*(nch-1) ! l' = 0, 2, 4, ...
+!!$          DP%lam(mch,2) = l
+!!$        ELSE
+!!$          l=2*(mch-1)+1 ! l = 1, 3, 5, ...
+!!$          lp=2*(nch-1)+1 ! l' = 1, 3, 5, ...
+!!$          DP%lam(mch,1) = l
+!!$        ENDIF
+!!$        do iBox=1,NumBoxes
+!!$          do step=1,PointsPerBox
+!!$            Pot(mch,nch,step,iBox,ml) = -2d0*DP%Cllp(l,lp,ml)*xm3(step,iBox)
+!!$            IF(mch.EQ.nch) Pot(mch,nch,step,iBox,ml) = Pot(mch,nch,step,iBox,ml) + 0.5d0*l*(l+1)*xm2(step,iBox)
+!!$            Pot(nch,mch,step,iBox,ml) = Pot(mch,nch,step,iBox,ml)
+!!$          enddo
+!!$        enddo
+!!$     ENDDO
+!!$    ENDDO
+!!$  enddo
+!!$end subroutine MakeDipolePot
 !=========================================================================================
 SUBROUTINE printmatrix(M,nr,nc,file)
   IMPLICIT NONE
@@ -469,22 +431,3 @@ SUBROUTINE printmatrix(M,nr,nc,file)
 30 FORMAT(1p,100d12.4)
 END SUBROUTINE printmatrix
 !=========================================================================================
-SUBROUTINE checkpot(Pot,x,file)
-  use GlobalVars
-  IMPLICIT NONE
-  INTEGER file,mch,nch,step,iBox
-  double precision x(PointsPerBox,NumBoxes),Pot(NumChannels,NumChannels,PointsPerBox,NumBoxes)
-
-  DO mch = 1,NumChannels
-     DO nch = 1,mch
-        do iBox=1,NumBoxes
-           DO step = 1,PointsPerBox
-              WRITE(file,*) x(step,iBox), Pot(mch,nch,step,iBox)
-           ENDDO
-        ENDDO
-        WRITE(file,*)
-     ENDDO
-     WRITE(file,*)
-  ENDDO
-
-END SUBROUTINE checkpot

@@ -1,7 +1,7 @@
 !****************************************************************************************************
     MODULE MorsePotential
     USE DataStructures
-    USE Quadrature
+!    USE Quadrature
     IMPLICIT NONE
     TYPE Morse
        DOUBLE PRECISION D(3),V(3,3),rc(3,3),a(3,3)
@@ -41,26 +41,28 @@
       RETURN
     END FUNCTION Morse1
 
-    SUBROUTINE SetMorsePotential(VPot,M,NPTS,x)
+    SUBROUTINE SetMorsePotential(VPot,M,NPTS,x,x1,x2)
 
       IMPLICIT NONE
       TYPE(Morse), INTENT(in) :: M
       INTEGER kx,mch,nch,NChan,NPTS
       DOUBLE PRECISION pot(3,3),VPot(3,3,NPTS)
-      DOUBLE PRECISION x(NPTS)
+      DOUBLE PRECISION x(NPTS),x1,x2,dx
       Nchan=3
       VPot(:,:,:) = 0d0
-
+      dx = (x2-x1)/dble(NPTS)
+      
       DO kx = 1,NPTS
+         x(kx) = x1 + kx*dx
          DO mch = 1,NChan
-               VPot(mch,mch,lx,kx) = Morse1(M%a(mch,mch),M%D(mch),M%rc(mch,mch),x(kx)) + M%Eth(mch)  ! Diagonal Morse potential
-               DO nch = 1, mch-1
-                  VPot(mch,nch,kx) = M%V(mch,nch)*dexp(-(x(kx)-M%rc(mch,nch))**2/M%a(mch,nch)**2)  ! Gaussian off-diagonal couplings
-                  VPot(nch,mch,kx) = VPot(mch,nch,kx)
-               ENDDO
+            VPot(mch,mch,kx) = Morse1(M%a(mch,mch),M%D(mch),M%rc(mch,mch),x(kx)) + M%Eth(mch)  ! Diagonal Morse potential
+            DO nch = 1, mch-1
+               VPot(mch,nch,kx) = M%V(mch,nch)*dexp(-(x(kx)-M%rc(mch,nch))**2/M%a(mch,nch)**2)  ! Gaussian off-diagonal couplings
+               VPot(nch,mch,kx) = VPot(mch,nch,kx)
             ENDDO
          ENDDO
       ENDDO
-
-    END SUBROUTINE SetMorsePotential
+      
+   
+ END SUBROUTINE SetMorsePotential
   END MODULE MorsePotential
