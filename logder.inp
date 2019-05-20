@@ -5,7 +5,7 @@ mass1		mass2		mass3		mass4
 1.d0		1.d0		-		     -
 
 xStart		xEnd		PointsPerBox
-0d0     	100d0		1000
+0d0     	1000d0		10000
 
 NumBoxes
 1

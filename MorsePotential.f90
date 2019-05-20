@@ -46,14 +46,19 @@
       IMPLICIT NONE
       TYPE(Morse), INTENT(in) :: M
       INTEGER kx,mch,nch,NChan,NPTS
-      DOUBLE PRECISION pot(3,3),VPot(3,3,NPTS)
-      DOUBLE PRECISION x(NPTS),x1,x2,dx
+      DOUBLE PRECISION pot(3,3),VPot(3,3,0:NPTS)
+      DOUBLE PRECISION x1,x2,dx,x(0:NPTS)
+!      double precision, dimension(:), allocatable :: x(:)
+!      double precision, dimension(:), allocatable :: VPot(:,:,:)
+
       Nchan=3
       VPot(:,:,:) = 0d0
+      x=0d0
       dx = (x2-x1)/dble(NPTS)
       
-      DO kx = 1,NPTS
+      DO kx = 0,NPTS
          x(kx) = x1 + kx*dx
+         
          DO mch = 1,NChan
             VPot(mch,mch,kx) = Morse1(M%a(mch,mch),M%D(mch),M%rc(mch,mch),x(kx)) + M%Eth(mch)  ! Diagonal Morse potential
             DO nch = 1, mch-1
@@ -64,5 +69,5 @@
       ENDDO
       
    
- END SUBROUTINE SetMorsePotential
+    END SUBROUTINE SetMorsePotential
   END MODULE MorsePotential

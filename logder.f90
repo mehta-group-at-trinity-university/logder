@@ -87,10 +87,16 @@ contains
 
     call allocateprop
 
-!    weights(0)=1d0
-    do i = 1, PointsPerBox-1,2
-       weights(i)=4d0
-       weights(i+1)=2d0
+    !    weights(0)=1d0
+    !write(6,*) "check that PointsPerBox is even"
+    !if (mod(PointsPerBox,2).ne.0) then
+       !write(6,*) "PointsPerBox is not even, adding one point"
+       !PointsPerBox = PointsPerBox + 1
+       !stop
+    !endif
+    do i = 1, PointsPerBox-1
+       if (mod(i,2).eq.1)  weights(i)=4d0
+       if (mod(i,2).eq.0)  weights(i)=2d0
     enddo
     weights(PointsPerBox)=1d0
 
@@ -109,29 +115,34 @@ contains
     implicit none
     integer i,j,step
     double precision h
-    double precision xx(PointsPerBox)
+    double precision xx(0:PointsPerBox)
     double precision yi(NumChannels,NumChannels),yf(NumChannels,NumChannels)
     double precision Pot(NumChannels,NumChannels,PointsPerBox) !make sure Pot includes the threshold offsets
-    double precision temp(NumChannels,NumChannels)
+    double precision tempy(NumChannels,NumChannels)
+    double precision vtemp1(NumChannels,NumChannels), vtemp2(NumChannels,NumChannels), un(NumChannels,NumChannels)
 
     h=xx(2)-xx(1)
 
     yprevious = yi
-    do step = 1, PointsPerBox-1,2
-       VV(:,:,step)=2d0*mu*(identity*Energy-Pot(:,:,step))
-       VV(:,:,step+1)=2d0*mu*(identity*Energy-Pot(:,:,step+1))
-       u(:,:,step+1)=VV(:,:,step+1)
-       temp = identity + h**2/6d0 * VV(:,:,step)
-       call sqrmatinv(temp,NumChannels)
-       u(:,:,step)=MATMUL(temp,VV(:,:,step))
-    enddo
-
+    
     do step = 1, PointsPerBox
-       temp = identity + h*yprevious
-       call sqrmatinv(temp,NumChannels)
-       ycurrent = MATMUL(temp,yprevious) - onethird*h*weights(step)*u(:,:,step)
+       !write(6,*) weights(step)
+       vtemp1 = 2d0*mu*(identity*Energy-Pot(:,:,step))
+       if (mod(step,2).eq.0) then
+          un = vtemp1
+       else
+          vtemp2 = identity + h*h*onesixth*vtemp1
+          call sqrmatinv(vtemp2,NumChannels)
+          un = matmul(vtemp2,vtemp1)
+       endif
+       
+       tempy = identity + h*yprevious
+       call sqrmatinv(tempy,NumChannels)
+       ycurrent = MATMUL(tempy,yprevious) - onethird*h*weights(step)*un
        yprevious = ycurrent
+
     enddo
+    !stop
     yf = ycurrent
     
   end subroutine boxstep
@@ -226,10 +237,14 @@ CONTAINS
    do i=no+1,NumChannels
       Identity(i,i) = 1d0
       CALL hyperrirk(INT(d),alpha,0d0,k(i)*rm,rhypi,rhypk,rhypip,rhypkp,ldrhi,ldrhk)
-      JJ(i) = 1d0!rhypi/dsqrt(Pi*k(i))
-      NN(i) = -1d0!-rhypk/dsqrt(Pi*k(i))
-      JJp(i) = ldrhi!dsqrt(k(i)/Pi)*rhypip
-      NNp(i) = ldrhk!-dsqrt(k(i)/Pi)*rhypkp
+      JJ(i) = 1d0
+      NN(i) = -1d0
+      JJp(i) = ldrhi
+      NNp(i) = ldrhk
+!!$      JJ(i) = rhypi/dsqrt(Pi*k(i))
+!!$      NN(i) = -rhypk/dsqrt(Pi*k(i))
+!!$      JJp(i) = dsqrt(k(i)/Pi)*rhypip
+!!$      NNp(i) = -dsqrt(k(i)/Pi)*rhypkp
    ENDDO
 
    Ktemp1=0d0
@@ -282,22 +297,22 @@ program main
   type(ScatData) SD
   double precision, allocatable :: VPot(:,:,:)
   double precision, allocatable :: BoxGrid(:)
-  double precision, allocatable :: x(:,:),yin(:,:),yout(:,:),Egrid(:)
+  double precision, allocatable :: x(:),yin(:,:),yout(:,:),Egrid(:)
   double precision time1, time2, sigmagrandtotal
   integer iBox,ml,iE
 
   InputFile = 'logder.inp'
   call ReadGlobal()
 
-  allocate(VPot(NumChannels,NumChannels,PointsPerBox))
+  allocate(VPot(NumChannels,NumChannels,0:PointsPerBox))
   allocate(BoxGrid(NumBoxes+1))
   allocate(yin(NumChannels,NumChannels),yout(NumChannels,NumChannels))
-  allocate(x(PointsPerBox,NumBoxes))
+  allocate(x(0:PointsPerBox))
   allocate(Egrid(NumE))
 
   call AllocateScat(SD,NumChannels)
   call InitMorse(M)
-  call GridMaker(Egrid,NumE,M%Eth(1)+0.001d0,M%Eth(2)-0.001d0,"linear")
+  call GridMaker(Egrid,NumE,M%Eth(2)+0.001d0,M%Eth(3)-0.001d0,"linear")
   call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"linear")
   call printmatrix(BoxGrid,NumBoxes+1,1,6)
      
@@ -306,33 +321,25 @@ program main
 !  write(6,"(3A15)") "energy","sigma","time"
   do iE = 1,NumE
      Energy = Egrid(iE)
-     do ml=0,0
-        yin = ystart
-!!$        write(6,*) Energy, ml, "Y-matrix START:"
-!!$        write(6,*) "================================="
-!!$        call printmatrix(yin,NumChannels,NumChannels,6)
+     yin = ystart
+     do iBox=1,NumBoxes
+        !write(6,*) "calling set morse"
+        VPot = 0d0
+        x=0d0
 
-        do iBox=1,NumBoxes
-           call SetMorsePotential(VPot,M,PointsPerBox,x(:,iBox),BoxGrid(iBox),BoxGrid(iBox+1))
-           call boxstep(x(:,iBox),yin,yout,VPot)
-           yin = yout
-!!$           write(6,*) Energy, ml, "Y-matrix:"
-!!$           write(6,*) "================================="
-!!$           call printmatrix(yout,NumChannels,NumChannels,6)
+        call SetMorsePotential(VPot,M,PointsPerBox,x,BoxGrid(iBox),BoxGrid(iBox+1))
+        ! write(6,*) "calling boxstep"
 
-           !write(6,*)"ml, iBox=", ml, iBox
-        enddo
-        call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,M%Eth,NumChannels,NumChannels)
-!!$        write(6,*) Energy, ml, "K-matrix:"
-!!$        write(6,*) "================================="
-!!$        call printmatrix(SD%K,NumChannels,NumChannels,6)
-        SD%sigmatot(0) = sum(SD%sigma)
+        call boxstep(x,yin,yout,VPot)
+        yin = yout
      enddo
-     call cpu_time(time2)
-     write(10,*) Energy, SD%K(1,1)
-     WRITE(6,"(3D15.6)")  Energy, SD%K(1,1)
+     call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,M%Eth,NumChannels,NumChannels)
+     SD%sigmatot(0) = sum(SD%sigma)
+     write(10,*) Energy, SD%K(1,1), SD%K(1,2), SD%K(2,1), SD%K(2,2)
+     WRITE(6,"(5D15.6)")  Energy, SD%K(1,1), SD%K(1,2), SD%K(2,1), SD%K(2,2)
   enddo
-
+  call cpu_time(time2)
+  write(6,*) "total time for calculation = ", time2-time1
 end program
 !=========================================================================================
 !=========================================================================================
