@@ -34,25 +34,5 @@ CONTAINS
     DEALLOCATE(SD%K,SD%R,SD%f,SD%sigma,SD%S,SD%T,SD%sigmatot)
 
   END SUBROUTINE DeAllocateScat
-!!$  !****************************************************************************************************
-!!$  SUBROUTINE checkpot(BPD,file)
-!!$!    USE Quadrature
-!!$    IMPLICIT NONE
-!!$    INTEGER file,mch,nch,lx,kx
-!!$    TYPE(BPData) BPD
-!!$
-!!$    DO mch = 1,BPD%NumChannels
-!!$       DO nch = 1,mch
-!!$          DO kx = 1, BPD%xNumPoints-1
-!!$             DO lx = 1,LegPoints
-!!$                WRITE(file,*) BPD%x(lx,kx), BPD%Pot(mch,nch,lx,kx)
-!!$             ENDDO
-!!$          ENDDO
-!!$          WRITE(file,*)
-!!$       ENDDO
-!!$       WRITE(file,*)
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE checkpot
 
 END MODULE DataStructures
