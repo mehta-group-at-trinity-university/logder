@@ -5,7 +5,7 @@ FORCEDP = #-fdefault-real-8 -fdefault-double-8
 INCLUDE = -I/usr/local/opt/lapack/include
 LAPACK = -Wl,--start-group  -larpack_Intel $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_sequential.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -lm -parallel
 ARPACK =  -L/opt/ARPACK/
-OBJS = besselnew.o matrix_stuff.o zgensub.o DipoleDipole.o logder.o
+OBJS = DataStructures.o besselnew.o matrix_stuff.o zgensub.o MorsePotential.o logder.o
 
 logder.x:	   ${OBJS}
 	${CMP} ${DEBUG} ${OBJS} ${INCLUDE} ${ARPACK} ${LAPACK} ${CMPFLAGS} ${FORCEDP} -o logder.x
@@ -23,16 +23,22 @@ modules_qd.o:	modules_qd.f90
 	${CMP} ${FORCEDP} -c modules_qd.f90
 
 besselnew.o:	besselnew.f
-	${CMP} ${DEBUG} ${FORCEDP} ${CMPFLAGS} -extend-source 132 -c besselnew.f
+	${CMP} ${DEBUG} ${FORCEDP} ${CMPFLAGS} -c besselnew.f
 
 zgensub.o: zgensub.f
-	${CMP} ${FORCEDP} ${CMPFLAGS} -c zgensub.f
+	${CMP} ${FORCEDP} -c zgensub.f
 
-DipoleDipole.mod: DipoleDipole.o
-	${CMP} ${FORCEDP} DipoleDipole.o
+MorsePotential.mod: MorsePotential.o
+	${CMP} ${FORCEDP} MorsePotential.o
 
-DipoleDipole.o: DipoleDipole.f90
-	${CMP} ${FORCEDP} ${CMPFLAGS} -c DipoleDipole.f90
+MorsePotential.o: MorsePotential.f90
+	${CMP} ${FORCEDP} -c MorsePotential.f90
+
+DataStructures.mod: DataStructures.o
+	${CMP} ${FORCEDP} DataStructures.o
+
+DataStructures.o: DataStructures.f90
+	${CMP} ${FORCEDP} -c DataStructures.f90
 
 clean:
 	rm -f *.mod *.o *.x
