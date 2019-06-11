@@ -4,3 +4,6 @@ logder.o
 logder.x
 fort.10
 fort.10
+zgensub.o
+besselnew.o
+matrix_stuff.o
