@@ -16,7 +16,7 @@ c!
       call doubfact(d-4,df)
 !write(6,*) "order=",order, halfd, lam, d
 
-      if (x.le.1000d0) then
+      if (x.le.10d0*order**2) then
          call bessjy(x,order,j,y,jp,yp)
       else
          call BesselAsymNew(order,x,j,y,jp,yp)
@@ -254,7 +254,7 @@ c$$$  syp=factor*rkp+sk/(2.d0*x)
         if(d.lt.0.d0)isign=-isign
         if(abs(del-1.d0).lt.EPS)goto 1
  11   continue
-      write(6,*)'x too large in bessjy; try asymptotic expansion'
+      write(6,*)'x too large in bessjy; try asymptotic expansion', x,xnu
       read(*,*)
 1     continue
       rjl=isign*FPMIN

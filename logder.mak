@@ -5,7 +5,7 @@ FORCEDP = #-fdefault-real-8 -fdefault-double-8
 INCLUDE = -I/usr/local/opt/lapack/include
 LAPACK =  -framework accelerate
 ARPACK = -L/Users/mehtan/Code/ARPACK/ARPACK -larpack_OSX
-OBJS = besselnew.o matrix_stuff.o zgensub.o DipoleDipole.o logder.o
+OBJS = DataStructures.o besselnew.o matrix_stuff.o zgensub.o MorsePotential.o logder.o
 
 logder.x:	   ${OBJS}
 	${CMP} ${DEBUG} ${OBJS} ${INCLUDE} ${ARPACK} ${LAPACK} ${CMPFLAGS} ${FORCEDP} -o logder.x
@@ -28,11 +28,17 @@ besselnew.o:	besselnew.f
 zgensub.o: zgensub.f
 	${CMP} ${FORCEDP} -c zgensub.f
 
-DipoleDipole.mod: DipoleDipole.o
-	${CMP} ${FORCEDP} DipoleDipole.o
+MorsePotential.mod: MorsePotential.o
+	${CMP} ${FORCEDP} MorsePotential.o
 
-DipoleDipole.o: DipoleDipole.f90
-	${CMP} ${FORCEDP} -c DipoleDipole.f90
+MorsePotential.o: MorsePotential.f90
+	${CMP} ${FORCEDP} -c MorsePotential.f90
+
+DataStructures.mod: DataStructures.o
+	${CMP} ${FORCEDP} DataStructures.o
+
+DataStructures.o: DataStructures.f90
+	${CMP} ${FORCEDP} -c DataStructures.f90
 
 clean:
 	rm -f *.mod *.o *.x
