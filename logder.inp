@@ -1,5 +1,5 @@
-NumParticles	NumChannels	SpatialDim (double-prec)	NumAllChan
-2		3		3.d0   		            	20
+NumParticles	SpatialDim (double-prec)	NumAllChan	lmax
+2		3.d0   		            	20		40
 
 mass1		mass2		mass3		mass4
 1.d0		1.d0		-		     -

@@ -12,7 +12,7 @@ LAPACK = -Wl,--start-group  -larpack_Intel $(MKLROOT)/lib/intel64/libmkl_intel_l
 
 ARPACK =  -L/opt/ARPACK/
 
-OBJS = DataStructures.o besselnew.o matrix_stuff.o zgensub.o MorsePotential.o logder.o
+OBJS = DataStructures.o besselnew.o matrix_stuff.o zgensub.o DipoleDipole.o logder.o
 
 
 
@@ -58,15 +58,15 @@ zgensub.o: zgensub.f
 
 
 
-MorsePotential.mod: MorsePotential.o
+DipoleDipole.mod: DipoleDipole.o
 
-	${CMP} ${FORCEDP} MorsePotential.o
+	${CMP} ${FORCEDP} DipoleDipole.o
 
 
 
-MorsePotential.o: MorsePotential.f90
+DipoleDipole.o: DipoleDipole.f90
 
-	${CMP} ${FORCEDP} -c MorsePotential.f90
+	${CMP} ${FORCEDP} -c DipoleDipole.f90
 
 
 
@@ -85,3 +85,4 @@ DataStructures.o: DataStructures.f90
 clean:
 
 	rm -f *.mod *.o *.x
+

@@ -31,7 +31,7 @@ CONTAINS
   
     IMPLICIT NONE
     TYPE(DPData) DP
-    INTEGER, INTENT(IN) :: m,lmax,Nchan,NPTS
+    INTEGER, INTENT(IN) :: m,lmax, Nchan,NPTS
     INTEGER lp,l1
     INTEGER kx, mch, nch
     DOUBLE PRECISION x(0:NPTS), x1, x2, dx, VPot(Nchan,Nchan,0:NPTS)

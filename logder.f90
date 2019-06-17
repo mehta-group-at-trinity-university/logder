@@ -25,7 +25,7 @@ CONTAINS
     ! Be sure to match the format of the input file to the format of the read statements below
     OPEN(unit=7,file=InputFile(1:INDEX(InputFile,' ')-1),action='read')
     READ(7,*)
-    READ(7,*) NumParticles, NumChannels, SpatialDim, NumAllChan
+    READ(7,*) NumParticles, SpatialDim, NumAllChan,lmax
     ALLOCATE(mass(NumParticles))
     READ(7,*)
     READ(7,*)
@@ -40,7 +40,7 @@ CONTAINS
     READ(7,*)
     READ(7,*) Emin,  Emax,  NumE
     !PointsPerBox=9  ! careful! if you change this you need to go change the weights array.
-    lmax = 2*NumChannels
+    !lmax = 2*NumChannels
     CLOSE(unit=7)
     EffDim = NumParticles*SpatialDim - SpatialDim
     !AlphaFactor = 0d0
@@ -57,6 +57,20 @@ CONTAINS
     onesixth = onethird*0.5d0
     
   END SUBROUTINE ReadGlobal
+
+  SUBROUTINE CalcNumChannels(m,l)
+    IMPLICIT NONE
+    INTEGER, INTENT(IN):: l,m
+    IF(MOD(m,2).EQ.1)THEN
+       NumChannels = (lmax - m + 1)/2
+    ELSE
+       IF(MOD(l,2).EQ.0)THEN
+          NumChannels = (lmax -m)/2 + 1
+       ELSE
+          NumChannels = (lmax - m)/2
+       END IF
+    END IF
+  END SUBROUTINE 
     !****************************************************************************************************
 END MODULE GlobalVars
 
@@ -154,6 +168,7 @@ end module logderprop
 !============================================================================================
 
 module scattering
+  use GlobalVars
   use datastructures
   !****************************************************************************************************
 
@@ -171,7 +186,7 @@ CONTAINS
    DOUBLE PRECISION k(NumChannels),Eth(NumChannels)
    complex*16, allocatable :: tmp(:,:),Identity(:,:)
    complex*16  II
-   INTEGER i,j,no,nw,nc,beta,NumChannels,NumOpen
+   INTEGER i,j,no,nw,nc,beta,NumOpen,Numchannels
 
    
    II=(0d0,1d0)
@@ -260,56 +275,61 @@ end module scattering
 program main
 
   use GlobalVars
-
-  use MorsePotential
+  use DipoleDipole
   use logderprop
   use scattering
   implicit none
-  type(Morse) M
+  type(DPData) DP
   type(ScatData) SD
   double precision, allocatable :: VPot(:,:,:)
   double precision, allocatable :: BoxGrid(:)
   double precision, allocatable :: x(:),yin(:,:),yout(:,:),Egrid(:)
   double precision time1, time2, sigmagrandtotal
-  integer iBox,ml,iE
+  integer iBox,ml,iE,m,l
 
   InputFile = 'logder.inp'
   call ReadGlobal()
+  Do m=0,lmax
+     Do l=m,lmax
+        call CalcNumChannels(m,l)
 
-  allocate(VPot(NumChannels,NumChannels,0:PointsPerBox))
-  allocate(BoxGrid(NumBoxes+1))
-  allocate(yin(NumChannels,NumChannels),yout(NumChannels,NumChannels))
-  allocate(x(0:PointsPerBox))
-  allocate(Egrid(NumE))
 
-  call AllocateScat(SD,NumChannels)
-  call InitMorse(M)
-  call GridMaker(Egrid,NumE,M%Eth(2)+0.001d0,M%Eth(3)-0.001d0,"linear")
-  call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"linear")
-  call printmatrix(BoxGrid,NumBoxes+1,1,6)
+        allocate(VPot(NumChannels,NumChannels,0:PointsPerBox))
+        allocate(BoxGrid(NumBoxes+1))
+        allocate(yin(NumChannels,NumChannels),yout(NumChannels,NumChannels))
+        allocate(x(0:PointsPerBox))
+        allocate(Egrid(NumE))
+
+        call AllocateScat(SD,NumChannels)
+        call AllocateDP(DP,NumChannels)
+        call GridMaker(Egrid,NumE,DP%Eth(2)+0.001d0,DP%Eth(3)-0.001d0,"linear")
+        call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"linear")
+        call printmatrix(BoxGrid,NumBoxes+1,1,6)
      
-  call initprop  ! sets the weights and the initial Y matrix.
-  call cpu_time(time1)
-!  write(6,"(3A15)") "energy","sigma","time"
-  do iE = 1,NumE
-     Energy = Egrid(iE)
-     yin = ystart
-     do iBox=1,NumBoxes
-        !write(6,*) "calling set morse"
-        VPot = 0d0
-        x=0d0
+        call initprop  ! sets the weights and the initial Y matrix.
+        call cpu_time(time1)
+        !  write(6,"(3A15)") "energy","sigma","time"
+        do iE = 1,NumE
+           Energy = Egrid(iE)
+           yin = ystart
+           do iBox=1,NumBoxes
+              !write(6,*) "calling set morse"
+              VPot = 0d0
+              x=0d0
 
-        call SetMorsePotential(VPot,M,PointsPerBox,x,BoxGrid(iBox),BoxGrid(iBox+1))
-        ! write(6,*) "calling boxstep"
+              call SetDipoleDipolePot(VPot,DP,PointsPerBox,x,BoxGrid(iBox),BoxGrid(iBox+1),NumChannels,m,lmax)
+              ! write(6,*) "calling boxstep
 
-        call boxstep(x,yin,yout,VPot,iBox,NumBoxes)
-        yin = yout
-     enddo
-     call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,M%Eth,NumChannels,NumChannels)
-     SD%sigmatot(0) = sum(SD%sigma)
-     write(10,*) Energy, SD%K(1,1), SD%K(1,2), SD%K(2,1), SD%K(2,2)
-     WRITE(6,"(5D15.6)")  Energy, SD%K(1,1), SD%K(1,2), SD%K(2,1), SD%K(2,2)
-  enddo
+              call boxstep(x,yin,yout,VPot,iBox,NumBoxes)
+              yin = yout
+           enddo
+           call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,DP%Eth,NumChannels,NumChannels)
+           SD%sigmatot(0) = sum(SD%sigma)
+          ! write(10,*) Energy, SD%K(1,1), SD%K(1,2), SD%K(2,1), SD%K(2,2)
+           !WRITE(6,"(5D15.6)")  Energy, SD%K(1,1), SD%K(1,2), SD%K(2,1), SD%K(2,2)
+        enddo
+     end do
+  end do
   call cpu_time(time2)
   write(6,*) "total time for calculation = ", time2-time1
 end program
