@@ -3,7 +3,7 @@
 MODULE GlobalVars
   use datastructures
   IMPLICIT NONE
-  INTEGER NumParticles, NumChannels,  NumAllChan, NumE
+  INTEGER NumParticles, NumAllChan, NumE, NumChannels
   INTEGER PointsPerBox,NumBoxes,lmax
   !----------------------------------------------------------------------------------------------------
   DOUBLE PRECISION AlphaFactor ! This is the parameter that appears in the reduced wavefunction u(R) = R^(AlphaFactor) Psi(R)
@@ -58,7 +58,7 @@ CONTAINS
     
   END SUBROUTINE ReadGlobal
 
-  SUBROUTINE CalcNumChannels(m,l)
+  SUBROUTINE  CalcNumChannels(m,l)
     IMPLICIT NONE
     INTEGER, INTENT(IN):: l,m
     IF(MOD(m,2).EQ.1)THEN
@@ -70,7 +70,7 @@ CONTAINS
           NumChannels = (lmax - m)/2
        END IF
     END IF
-  END SUBROUTINE 
+  END SUBROUTINE CalcNumChannels
     !****************************************************************************************************
 END MODULE GlobalVars
 
@@ -168,7 +168,6 @@ end module logderprop
 !============================================================================================
 
 module scattering
-  use GlobalVars
   use datastructures
   !****************************************************************************************************
 
@@ -289,11 +288,11 @@ program main
 
   InputFile = 'logder.inp'
   call ReadGlobal()
+  NumChannels = 0
   Do m=0,lmax
      Do l=m,lmax
+        
         call CalcNumChannels(m,l)
-
-
         allocate(VPot(NumChannels,NumChannels,0:PointsPerBox))
         allocate(BoxGrid(NumBoxes+1))
         allocate(yin(NumChannels,NumChannels),yout(NumChannels,NumChannels))
@@ -309,27 +308,40 @@ program main
         call initprop  ! sets the weights and the initial Y matrix.
         call cpu_time(time1)
         !  write(6,"(3A15)") "energy","sigma","time"
-        do iE = 1,NumE
+        DO iE = 1,NumE
            Energy = Egrid(iE)
            yin = ystart
-           do iBox=1,NumBoxes
+           DO iBox=1,NumBoxes
               !write(6,*) "calling set morse"
               VPot = 0d0
               x=0d0
 
               call SetDipoleDipolePot(VPot,DP,PointsPerBox,x,BoxGrid(iBox),BoxGrid(iBox+1),NumChannels,m,lmax)
+              call PlotPot(VPot, x, Numchannels, PointsPerBox, 2,2,15)
               ! write(6,*) "calling boxstep
 
               call boxstep(x,yin,yout,VPot,iBox,NumBoxes)
               yin = yout
-           enddo
+           END DO
            call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,DP%Eth,NumChannels,NumChannels)
-           SD%sigmatot(0) = sum(SD%sigma)
-          ! write(10,*) Energy, SD%K(1,1), SD%K(1,2), SD%K(2,1), SD%K(2,2)
-           !WRITE(6,"(5D15.6)")  Energy, SD%K(1,1), SD%K(1,2), SD%K(2,1), SD%K(2,2)
-        enddo
-     end do
-  end do
+          ! write(6,*) NumChannels
+          ! SD%sigmatot(0) = sum(SD%sigma)
+           !write(10,*) Energy,SD%K(1,1), SD%K(1,2)
+          ! WRITE(6,"(5D15.6)")  Energy, SD%K(1,1), SD%K(1,2)
+        END DO
+
+        deallocate(VPot)
+        deallocate(BoxGrid)
+        deallocate(yin)
+        deallocate(yout)
+        deallocate(x)
+        deallocate(Egrid)
+        call DeallocateDP(DP)
+        call DeAllocateScat(SD)
+
+     END DO
+  END DO
+
   call cpu_time(time2)
   write(6,*) "total time for calculation = ", time2-time1
 end program

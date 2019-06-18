@@ -11,6 +11,12 @@ CONTAINS
     ALLOCATE(DP%Eth(N))
   END SUBROUTINE AllocateDP
 
+  SUBROUTINE DeallocateDP(DP)
+    IMPLICIT NONE
+    TYPE(DPData) DP
+    DEALLOCATE (DP%Eth)
+  END SUBROUTINE DeallocateDP
+
   FUNCTION  Coupling(m,l,lp)
     IMPLICIT NONE
     INTEGER l,lp,m 
@@ -31,7 +37,7 @@ CONTAINS
   
     IMPLICIT NONE
     TYPE(DPData) DP
-    INTEGER, INTENT(IN) :: m,lmax,Nchan,NPTS
+    INTEGER, INTENT(IN) :: m,lmax, Nchan,NPTS
     INTEGER lp,l1
     INTEGER kx, mch, nch
     DOUBLE PRECISION x(0:NPTS), x1, x2, dx, VPot(Nchan,Nchan,0:NPTS)
@@ -52,7 +58,7 @@ CONTAINS
                 VPot(mch,nch,kx)=-2d0*Coupling(m,l1,lp)/x(kx)**3 + 0.50*l1*(l1+1)/x(kx)**2
              Else 
              VPot(mch, nch, kx) = -2d0*Coupling(m,l1,lp)/x(kx)**3
-             VPot(nch,mch,kx )= VPot(mch,nch,kx)
+             VPot(nch,mch,kx) = VPot(mch,nch,kx)
              End if
              nch = nch + 1
           End do
@@ -68,11 +74,7 @@ CONTAINS
     DOUBLE PRECISION VPot(Nchan,Nchan,0:NPTS),x(0:NPTS)
     
     Do xi = 0, NPTS
-       Do i = 1,Nchan
-          Do j = 1,Nchan
-             Write(file,*) VPot(i,j,x(xi))
-          End Do
-        End Do
+       Write(file,*)  x(xi), VPot(i,j,xi)
     End Do 
 
   END SUBROUTINE PlotPot
