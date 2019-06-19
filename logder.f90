@@ -76,13 +76,14 @@ END MODULE GlobalVars
 
 module logderprop
   use GlobalVars
-  implicit none
-  double precision h ! step size
-  double precision, allocatable :: weights(:) ! weights for pointesperbox points for each box
-  double precision, allocatable :: identity(:,:) !identity matrix
-  double precision, allocatable :: ycurrent(:,:), yprevious(:,:),ystart(:,:) ! y_(n} and y_{n-1}
-  double precision, allocatable :: u(:,:,:) !Johnson's u matrix for indices i,j,n
-  double precision, allocatable :: VV(:,:,:) ! Johnson's curly V matrix.  indices for i, j, n
+  implicit none 
+     double precision h ! step size
+     double precision, allocatable :: weights(:) ! weights for pointesperbox points for each box
+     double precision, allocatable :: identity(:,:) !identity matrix
+     double precision, allocatable :: ycurrent(:,:), yprevious(:,:),ystart(:,:) ! y_(n} and y_{n-1}
+     double precision, allocatable :: u(:,:,:) !Johnson's u matrix for indices i,j,n
+     double precision, allocatable :: VV(:,:,:) ! Johnson's curly V matrix.  indices for i, j, n
+  
 
 contains
   subroutine allocateprop
@@ -95,6 +96,7 @@ contains
     allocate(ystart(NumChannels,NumChannels))
     allocate(weights(PointsPerBox))
   end subroutine allocateprop
+ 
   subroutine initprop
     implicit none
     integer i,j
@@ -162,6 +164,12 @@ contains
     yf = ycurrent
     
   end subroutine boxstep
+ 
+  SUBROUTINE DeallocateProp
+    IMPLICIT NONE
+    DEALLOCATE(VV,u,ycurrent,yprevious,ystart,identity,weights)
+  END SUBROUTINE DeallocateProp
+    
   !****************************************************************************************************
 
 end module logderprop
@@ -185,7 +193,7 @@ CONTAINS
    DOUBLE PRECISION k(NumChannels),Eth(NumChannels)
    complex*16, allocatable :: tmp(:,:),Identity(:,:)
    complex*16  II
-   INTEGER i,j,no,nw,nc,beta,NumOpen,Numchannels
+   INTEGER i,j,NumOpen,Numchannels,no, nw, nc, beta
 
    
    II=(0d0,1d0)
@@ -194,6 +202,8 @@ CONTAINS
    no=0
    nw=0
    nc=0
+   Eth=0d0
+   
 
    DO i = 1,NumChannels
       IF (EE.GE.Eth(i)) THEN
@@ -268,7 +278,10 @@ CONTAINS
    SD%sindel = sin(SD%delta)
    SD%sin2del = SD%sindel**2
 
+   DEALLOCATE(JJ, NN, JJp, NNp, Ktemp1, Ktemp2, tmp, Identity)
+
  END SUBROUTINE CalcK
+
 end module scattering
 !=========================================================================================
 program main
@@ -305,7 +318,7 @@ program main
         call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"linear")
         call printmatrix(BoxGrid,NumBoxes+1,1,6)
      
-        call initprop  ! sets the weights and the initial Y matrix.
+        call initprop ! sets the weights and the initial Y matrix.
         call cpu_time(time1)
         !  write(6,"(3A15)") "energy","sigma","time"
         DO iE = 1,NumE
@@ -318,16 +331,15 @@ program main
 
               call SetDipoleDipolePot(VPot,DP,PointsPerBox,x,BoxGrid(iBox),BoxGrid(iBox+1),NumChannels,m,lmax)
               call PlotPot(VPot, x, Numchannels, PointsPerBox, 2,2,15)
-              ! write(6,*) "calling boxstep
+              !write(6,*) NumChannels
 
               call boxstep(x,yin,yout,VPot,iBox,NumBoxes)
               yin = yout
            END DO
            call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,DP%Eth,NumChannels,NumChannels)
-          ! write(6,*) NumChannels
           ! SD%sigmatot(0) = sum(SD%sigma)
            !write(10,*) Energy,SD%K(1,1), SD%K(1,2)
-          ! WRITE(6,"(5D15.6)")  Energy, SD%K(1,1), SD%K(1,2)
+           WRITE(6,"(5D15.6)")  Energy, SD%T(1,1), SD%T(1,2)
         END DO
 
         deallocate(VPot)
@@ -338,6 +350,8 @@ program main
         deallocate(Egrid)
         call DeallocateDP(DP)
         call DeAllocateScat(SD)
+        Call DeallocateProp
+ 
 
      END DO
   END DO

@@ -32,6 +32,8 @@ CONTAINS
     Coupling = phase*prefact*tj1*tj2
 
   END FUNCTION Coupling
+
+  Subroutine 
   
   SUBROUTINE SetDipoleDipolePot(VPot,DP,NPTS,x,x1,x2,Nchan,m,lmax)
   
@@ -42,6 +44,7 @@ CONTAINS
     INTEGER kx, mch, nch
     DOUBLE PRECISION x(0:NPTS), x1, x2, dx, VPot(Nchan,Nchan,0:NPTS)
 
+    DP%Eth=0d0
     lp=0
     l1=0
     VPot=0d0
