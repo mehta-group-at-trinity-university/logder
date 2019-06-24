@@ -202,7 +202,6 @@ CONTAINS
    no=0
    nw=0
    nc=0
-   Eth=0d0
    
 
    DO i = 1,NumChannels
@@ -293,34 +292,59 @@ program main
   implicit none
   type(DPData) DP
   type(ScatData) SD
-  double precision, allocatable :: VPot(:,:,:)
+  double precision, allocatable :: VPot(:,:,:),sigmatot(:,:),sigmagrandtotal(:)
   double precision, allocatable :: BoxGrid(:)
   double precision, allocatable :: x(:),yin(:,:),yout(:,:),Egrid(:)
-  double precision time1, time2, sigmagrandtotal
-  integer iBox,ml,iE,m,l
-
+  double precision time1, time2
+  integer iBox,ml,iE,m
+  call Setupam
   InputFile = 'logder.inp'
   call ReadGlobal()
   NumChannels = 0
-  Do m=0,lmax
-     Do l=m,lmax
-        
-        call CalcNumChannels(m,l)
-        allocate(VPot(NumChannels,NumChannels,0:PointsPerBox))
-        allocate(BoxGrid(NumBoxes+1))
-        allocate(yin(NumChannels,NumChannels),yout(NumChannels,NumChannels))
-        allocate(x(0:PointsPerBox))
-        allocate(Egrid(NumE))
 
-        call AllocateScat(SD,NumChannels)
-        call AllocateDP(DP,NumChannels)
-        call GridMaker(Egrid,NumE,DP%Eth(2)+0.001d0,DP%Eth(3)-0.001d0,"linear")
-        call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"linear")
-        call printmatrix(BoxGrid,NumBoxes+1,1,6)
+  call CalcNumChannels(0,1)
+  DP%lmax = lmax
+  call AllocateDP(DP,NumChannels)
+  call MakeDipoleDipoleCouplingMatrix(DP) 
+
+!stop 
+  allocate(VPot(NumChannels,NumChannels,0:PointsPerBox))
+  allocate(x(0:PointsPerBox))
+  allocate(BoxGrid(NumBoxes+1))
+  call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"quadratic")
+ 
+  DO iBox=1,NumBoxes
+     VPot=0d0
+     x=0d0
+     call SetDipoleDipolePot(VPot,DP,PointsPerBox,x,BoxGrid(iBox),BoxGrid(iBox+1),NumChannels,0,lmax)
+     call PlotPot(Vpot,x,NumChannels,PointsPerBox,1,2,15)
+  END DO
+ 
+ stop 
+
+
+ allocate(sigmatot(0:lmax,NumE))
+ allocate(Egrid(NumE))
+ allocate(sigmagrandtotal(NumE))
+ Do m=0,lmax
+      call CalcNumChannels(m,1)
+      !write(6,*) NumChannels, m
+      DP%lmax = lmax 
+      call AllocateDP(DP,NumChannels)
+      allocate(VPot(NumChannels,NumChannels,0:PointsPerBox))
+      allocate(BoxGrid(NumBoxes + 1))
+      allocate(yin(NumChannels,NumChannels),yout(NumChannels,NumChannels))
+      allocate(x(0:PointsPerBox))
+      !allocate(Egrid(NumE))
+      call AllocateScat(SD,NumChannels)
+      call GridMaker(Egrid,NumE,Emin,Emax,"log")
+      call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"quadratic")
+      !call printmatrix(BoxGrid,NumBoxes+1,1,6)
+
      
-        call initprop ! sets the weights and the initial Y matrix.
-        call cpu_time(time1)
-        !  write(6,"(3A15)") "energy","sigma","time"
+      call initprop ! sets the weights and the initial Y matrix.
+      call cpu_time(time1)
+        !  write(6,"(3A15)") "energy","sigma","time")
         DO iE = 1,NumE
            Energy = Egrid(iE)
            yin = ystart
@@ -328,34 +352,42 @@ program main
               !write(6,*) "calling set morse"
               VPot = 0d0
               x=0d0
-
+              call MakeDipoleDipoleCouplingMatrix(DP)
               call SetDipoleDipolePot(VPot,DP,PointsPerBox,x,BoxGrid(iBox),BoxGrid(iBox+1),NumChannels,m,lmax)
-              call PlotPot(VPot, x, Numchannels, PointsPerBox, 2,2,15)
-              !write(6,*) NumChannels
-
+              
               call boxstep(x,yin,yout,VPot,iBox,NumBoxes)
               yin = yout
            END DO
+
            call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,DP%Eth,NumChannels,NumChannels)
-          ! SD%sigmatot(0) = sum(SD%sigma)
-           !write(10,*) Energy,SD%K(1,1), SD%K(1,2)
-           WRITE(6,"(5D15.6)")  Energy, SD%T(1,1), SD%T(1,2)
+           sigmatot(m,iE) = sum(SD%sigma)
+           write(10,*) Energy, sigmatot(m,iE)
+           WRITE(6,*)  Energy, sigmatot(m,iE), m
         END DO
+       
 
         deallocate(VPot)
         deallocate(BoxGrid)
         deallocate(yin)
         deallocate(yout)
         deallocate(x)
-        deallocate(Egrid)
         call DeallocateDP(DP)
         call DeAllocateScat(SD)
         Call DeallocateProp
  
 
-     END DO
-  END DO
+ END DO
 
+!!$ sigmagrandtotal = 0
+!!$ DO iE=1,NumE
+!!$    Energy = Egrid(NumE)
+!!$    DO m = 0,lmax
+!!$       sigmagrandtotal(iE)=sigmagrandtotal(iE)+sigmatot(m,iE)
+!!$    END DO
+!!$    WRITE(20,*) Energy, sigmagrandtotal(iE)
+!!$ END DO 
+ 
+  
   call cpu_time(time2)
   write(6,*) "total time for calculation = ", time2-time1
 end program
