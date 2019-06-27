@@ -26,7 +26,7 @@ CONTAINS
     DP%Eth=0d0
     DP%cllp=0d0
     DO l=0,DP%lmax
-       DO lp=0,DP%lmax
+       DO lp=Max(l-2,0),Min(DP%lmax,l+2)
           prefact=DBLE((2*l+1)*(2*lp+1))
           prefact=dsqrt(prefact)
           DO m = 0,l
@@ -36,7 +36,7 @@ CONTAINS
              DP%cllp(l,lp,m)=prefact*phase*tj1*tj2
              DP%cllp(lp,l,m)=DP%cllp(l,lp,m)
              
-            Write(1000,*) l, lp, m,  DP%cllp(l,lp,m)
+            !Write(1000,*) l, lp, m,  DP%cllp(l,lp,m)
           ENDDO
        ENDDO
     ENDDO
@@ -69,9 +69,9 @@ CONTAINS
        Do kx=0,NPTS
           x(kx) = x1 + kx*dx
           mch = 1
-          Do l1 = m+1,lmax, 2
+          Do l1 = m+1,lmax-1, 2
            nch = 1
-           Do lp = m+1,lmax, 2
+           Do lp = m+1,lmax-1, 2
              If(mch.EQ.nch)THEN
                 VPot(mch,nch,kx)=-2d0*DP%cllp(l1,lp,m)/x(kx)**3 + 0.50*l1*(l1+1)/x(kx)**2
              Else 
@@ -88,9 +88,9 @@ CONTAINS
     Do kx=0,NPTS
           x(kx) = x1 + kx*dx
           mch = 1
-          Do l1 = m,lmax, 2
+          Do l1 = m,lmax-1, 2
            nch = 1
-           Do lp = m,lmax, 2
+           Do lp = m,lmax-1, 2
              If(mch.EQ.nch)THEN
                 VPot(mch,nch,kx)=-2d0*DP%cllp(l1,lp,m)/x(kx)**3 + 0.50*l1*(l1+1)/x(kx)**2
              Else 
