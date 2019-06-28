@@ -81,6 +81,7 @@ contains
     allocate(ystart(NumChannels,NumChannels))
     allocate(weights(PointsPerBox))
   end subroutine allocateprop
+  
   subroutine initprop
     implicit none
     integer i,j
@@ -260,7 +261,6 @@ end module scattering
 program main
 
   use GlobalVars
-
   use MorsePotential
   use logderprop
   use scattering
