@@ -1,5 +1,5 @@
 c!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-c! this subroutine calculates the hyerpspehrical besselfunctions multiplied by x**alpha
+c! this subroutine calculates the hyperspherical besselfunctions multiplied by x**alpha
 c!     rj = (x**alpha*hypj)
 c!     rjp = alpha*x**(alpha-1)*hypj + x**alpha*hypjp
 c!

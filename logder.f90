@@ -47,7 +47,7 @@ CONTAINS
     AlphaFactor = (EffDim-1d0)/2d0
 
     IF (NumParticles.EQ.2) THEN
-       mu = mass(1)*mass(2)/(mass(1)+mass(2))
+       mu = mass(1)*mass(2)/(mass(1)+mass(2))    
     ELSE
        WRITE(6,*) "Reduced mass not set. Must set reduced mass"
        STOP
@@ -181,8 +181,8 @@ module scattering
 
 CONTAINS
 
- SUBROUTINE CalcK(Y,rm,SD,mu,d,alpha,EE,Eth,NumChannels,NumOpen)
-!   use DipoleDipole
+ SUBROUTINE CalcK(Y,rm,SD,mu,d,alpha,EE,Eth,NumChannels,NumOpen,lam)
+   use DipoleDipole
    IMPLICIT NONE
    TYPE(ScatData) :: SD
 
@@ -190,7 +190,7 @@ CONTAINS
    DOUBLE PRECISION, ALLOCATABLE :: JJ(:),NN(:),JJp(:),NNp(:)
    double precision, allocatable :: Ktemp1(:,:),Ktemp2(:,:)
    DOUBLE PRECISION rhypj,rhypy,rhypjp,rhypyp,Pi,rhypi,rhypk,rhypip,rhypkp,ldrhk,ldrhi
-   DOUBLE PRECISION k(NumChannels),Eth(NumChannels)
+   DOUBLE PRECISION k(NumChannels),Eth(NumChannels),lam(NumChannels)
    complex*16, allocatable :: tmp(:,:),Identity(:,:)
    complex*16  II
    INTEGER i,j,NumOpen,Numchannels,no, nw, nc, beta
@@ -233,7 +233,7 @@ CONTAINS
    DO i = 1,no
       Identity(i,i) = 1d0
       !write(6,*) k(i), rm
-      CALL hyperrjry(INT(d),alpha,0d0,k(i)*rm,rhypj,rhypy,rhypjp,rhypyp)
+      CALL hyperrjry(INT(d),alpha,lam(i),k(i)*rm,rhypj,rhypy,rhypjp,rhypyp)  
       JJ(i) = rhypj/dsqrt(Pi*k(i))
       NN(i) = -rhypy/dsqrt(Pi*k(i))
       JJp(i) = dsqrt(k(i)/Pi)*rhypjp
@@ -241,7 +241,7 @@ CONTAINS
    ENDDO
    do i=no+1,NumChannels
       Identity(i,i) = 1d0
-      CALL hyperrirk(INT(d),alpha,0d0,k(i)*rm,rhypi,rhypk,rhypip,rhypkp,ldrhi,ldrhk)
+      CALL hyperrirk(INT(d),alpha,lam(i),k(i)*rm,rhypi,rhypk,rhypip,rhypkp,ldrhi,ldrhk)
       JJ(i) = 1d0
       NN(i) = -1d0
       JJp(i) = ldrhi
@@ -329,12 +329,12 @@ program main
  allocate(sigmagrandtotal(NumE))
  allocate(x(0:PointsPerBox))
  allocate(BoxGrid(NumBoxes+1))
- call GridMaker(Egrid,NumE,Emin,Emax,"linear")
- call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"quadratic")
+ call GridMaker(Egrid,NumE,Emin,Emax,"log")
+ call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"linear")
  !call printmatrix(BoxGrid,NumBoxes+1,1,6)
 
- !Do m=0,lmax-1
-  m = 0
+ Do m=0,lmax-1
+  !m = 0
       call CalcNumChannels(m,1)
       !write(6,*) NumChannels, m
       DP%lmax = lmax 
@@ -362,12 +362,12 @@ program main
               yin = yout
            END DO
 
-           call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,DP%Eth,NumChannels,NumChannels)
-           write(6,*) Energy
-           call printmatrix(SD%K,NumChannels,NumChannels,6)
-!!$           sigmatot(m,iE) = sum(SD%sigma)
+           call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,DP%Eth,NumChannels,NumChannels,DP%lam)
+!!$           call printmatrix(SD%K,NumChannels,NumChannels,6)
+!!$           call printmatrix(SD%T,NumChannels,NumChannels,6)
+           sigmatot(m,iE) = sum(SD%sigma)
 !!$           write(10,*) Energy, sigmatot(m,iE)
-!!$           WRITE(6,*)  Energy, sigmatot(m,iE),m
+!!$           WRITE(6,*)  Energy, sigmatot(m,iE)
         END DO
        
         deallocate(VPot)
@@ -378,19 +378,19 @@ program main
         Call DeallocateProp
  
 
-!!$ END DO
-!!$
-!!$ sigmagrandtotal = 0
-!!$ DO iE=1,NumE
-!!$    Energy = Egrid(iE) 
-!!$    DO m = 1,lmax-1
-!!$       sigmagrandtotal(iE)=sigmagrandtotal(iE)+sigmatot(m,iE)
-!!$    END DO
-!!$    sigmagrandtotal(iE)=2*sigmagrandtotal(iE)
-!!$    sigmagrandtotal(iE)=sigmagrandtotal(iE)+sigmatot(0,iE)
-!!$   Write(6,*) Energy, sigmagrandtotal(iE)
-!!$   WRITE(20,*) Energy, sigmagrandtotal(iE)
-!!$ END DO
+ END DO
+
+ sigmagrandtotal = 0
+ DO iE=1,NumE
+    Energy = Egrid(iE) 
+    DO m = 1,lmax-1
+       sigmagrandtotal(iE)=sigmagrandtotal(iE)+sigmatot(m,iE)
+    END DO
+    sigmagrandtotal(iE)=2*sigmagrandtotal(iE)
+    sigmagrandtotal(iE)=sigmagrandtotal(iE)+sigmatot(0,iE)
+   Write(6,*) Energy, sigmagrandtotal(iE)
+   WRITE(20,*) Energy, sigmagrandtotal(iE)
+ END DO
 
   
   !call cpu_time(time2)
