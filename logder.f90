@@ -3,7 +3,7 @@
 MODULE GlobalVars
   use datastructures
   IMPLICIT NONE
-  INTEGER NumParticles, NumChannels,  NumAllChan, NumE
+  INTEGER NumParticles, NumAllChan, NumE, NumChannels
   INTEGER PointsPerBox,NumBoxes,lmax
   !----------------------------------------------------------------------------------------------------
   DOUBLE PRECISION AlphaFactor ! This is the parameter that appears in the reduced wavefunction u(R) = R^(AlphaFactor) Psi(R)
@@ -25,7 +25,7 @@ CONTAINS
     ! Be sure to match the format of the input file to the format of the read statements below
     OPEN(unit=7,file=InputFile(1:INDEX(InputFile,' ')-1),action='read')
     READ(7,*)
-    READ(7,*) NumParticles, NumChannels, SpatialDim, NumAllChan
+    READ(7,*) NumParticles, SpatialDim, NumAllChan,lmax
     ALLOCATE(mass(NumParticles))
     READ(7,*)
     READ(7,*)
@@ -40,14 +40,14 @@ CONTAINS
     READ(7,*)
     READ(7,*) Emin,  Emax,  NumE
     !PointsPerBox=9  ! careful! if you change this you need to go change the weights array.
-    lmax = 2*NumChannels
+    !lmax = 2*NumChannels
     CLOSE(unit=7)
     EffDim = NumParticles*SpatialDim - SpatialDim
     !AlphaFactor = 0d0
     AlphaFactor = (EffDim-1d0)/2d0
 
     IF (NumParticles.EQ.2) THEN
-       mu = mass(1)*mass(2)/(mass(1)+mass(2))
+       mu = mass(1)*mass(2)/(mass(1)+mass(2))    
     ELSE
        WRITE(6,*) "Reduced mass not set. Must set reduced mass"
        STOP
@@ -57,18 +57,33 @@ CONTAINS
     onesixth = onethird*0.5d0
     
   END SUBROUTINE ReadGlobal
+
+  SUBROUTINE  CalcNumChannels(m,l)
+    IMPLICIT NONE
+    INTEGER, INTENT(IN):: l,m
+    IF(MOD(m,2).EQ.1)THEN
+       NumChannels = (lmax - m + 1)/2
+    ELSE
+       IF(MOD(l,2).EQ.0)THEN
+          NumChannels = (lmax -m)/2 + 1
+       ELSE
+          NumChannels = (lmax - m)/2
+       END IF
+    END IF
+  END SUBROUTINE CalcNumChannels
     !****************************************************************************************************
 END MODULE GlobalVars
 
 module logderprop
   use GlobalVars
-  implicit none
-  double precision h ! step size
-  double precision, allocatable :: weights(:) ! weights for pointesperbox points for each box
-  double precision, allocatable :: identity(:,:) !identity matrix
-  double precision, allocatable :: ycurrent(:,:), yprevious(:,:),ystart(:,:) ! y_(n} and y_{n-1}
-  double precision, allocatable :: u(:,:,:) !Johnson's u matrix for indices i,j,n
-  double precision, allocatable :: VV(:,:,:) ! Johnson's curly V matrix.  indices for i, j, n
+  implicit none 
+     double precision h ! step size
+     double precision, allocatable :: weights(:) ! weights for pointesperbox points for each box
+     double precision, allocatable :: identity(:,:) !identity matrix
+     double precision, allocatable :: ycurrent(:,:), yprevious(:,:),ystart(:,:) ! y_(n} and y_{n-1}
+     double precision, allocatable :: u(:,:,:) !Johnson's u matrix for indices i,j,n
+     double precision, allocatable :: VV(:,:,:) ! Johnson's curly V matrix.  indices for i, j, n
+  
 
 contains
   subroutine allocateprop
@@ -81,6 +96,7 @@ contains
     allocate(ystart(NumChannels,NumChannels))
     allocate(weights(PointsPerBox))
   end subroutine allocateprop
+ 
   subroutine initprop
     implicit none
     integer i,j
@@ -148,6 +164,12 @@ contains
     yf = ycurrent
     
   end subroutine boxstep
+ 
+  SUBROUTINE DeallocateProp
+    IMPLICIT NONE
+    DEALLOCATE(VV,u,ycurrent,yprevious,ystart,identity,weights)
+  END SUBROUTINE DeallocateProp
+    
   !****************************************************************************************************
 
 end module logderprop
@@ -159,8 +181,8 @@ module scattering
 
 CONTAINS
 
- SUBROUTINE CalcK(Y,rm,SD,mu,d,alpha,EE,Eth,NumChannels,NumOpen)
-!   use DipoleDipole
+ SUBROUTINE CalcK(Y,rm,SD,mu,d,alpha,EE,Eth,NumChannels,NumOpen,lam)
+   use DipoleDipole
    IMPLICIT NONE
    TYPE(ScatData) :: SD
 
@@ -168,10 +190,10 @@ CONTAINS
    DOUBLE PRECISION, ALLOCATABLE :: JJ(:),NN(:),JJp(:),NNp(:)
    double precision, allocatable :: Ktemp1(:,:),Ktemp2(:,:)
    DOUBLE PRECISION rhypj,rhypy,rhypjp,rhypyp,Pi,rhypi,rhypk,rhypip,rhypkp,ldrhk,ldrhi
-   DOUBLE PRECISION k(NumChannels),Eth(NumChannels)
+   DOUBLE PRECISION k(NumChannels),Eth(NumChannels),lam(NumChannels)
    complex*16, allocatable :: tmp(:,:),Identity(:,:)
    complex*16  II
-   INTEGER i,j,no,nw,nc,beta,NumChannels,NumOpen
+   INTEGER i,j,NumOpen,Numchannels,no, nw, nc, beta
 
    
    II=(0d0,1d0)
@@ -180,6 +202,7 @@ CONTAINS
    no=0
    nw=0
    nc=0
+   
 
    DO i = 1,NumChannels
       IF (EE.GE.Eth(i)) THEN
@@ -210,7 +233,7 @@ CONTAINS
    DO i = 1,no
       Identity(i,i) = 1d0
       !write(6,*) k(i), rm
-      CALL hyperrjry(INT(d),alpha,0d0,k(i)*rm,rhypj,rhypy,rhypjp,rhypyp)
+      CALL hyperrjry(INT(d),alpha,lam(i),k(i)*rm,rhypj,rhypy,rhypjp,rhypyp)  
       JJ(i) = rhypj/dsqrt(Pi*k(i))
       NN(i) = -rhypy/dsqrt(Pi*k(i))
       JJp(i) = dsqrt(k(i)/Pi)*rhypjp
@@ -218,7 +241,7 @@ CONTAINS
    ENDDO
    do i=no+1,NumChannels
       Identity(i,i) = 1d0
-      CALL hyperrirk(INT(d),alpha,0d0,k(i)*rm,rhypi,rhypk,rhypip,rhypkp,ldrhi,ldrhk)
+      CALL hyperrirk(INT(d),alpha,lam(i),k(i)*rm,rhypi,rhypk,rhypip,rhypkp,ldrhi,ldrhk)
       JJ(i) = 1d0
       NN(i) = -1d0
       JJp(i) = ldrhi
@@ -254,64 +277,124 @@ CONTAINS
    SD%sindel = sin(SD%delta)
    SD%sin2del = SD%sindel**2
 
+   DEALLOCATE(JJ, NN, JJp, NNp, Ktemp1, Ktemp2, tmp, Identity)
+
  END SUBROUTINE CalcK
+
 end module scattering
 !=========================================================================================
 program main
 
   use GlobalVars
-
-  use MorsePotential
+  use DipoleDipole
   use logderprop
   use scattering
   implicit none
-  type(Morse) M
+  type(DPData) DP
   type(ScatData) SD
-  double precision, allocatable :: VPot(:,:,:)
+  double precision, allocatable :: VPot(:,:,:),sigmagrandtotal(:),sigmatot(:,:)
   double precision, allocatable :: BoxGrid(:)
   double precision, allocatable :: x(:),yin(:,:),yout(:,:),Egrid(:)
-  double precision time1, time2, sigmagrandtotal
-  integer iBox,ml,iE
-
+  double precision time1, time2
+  integer iBox,ml,iE,m
+  call Setupam
   InputFile = 'logder.inp'
   call ReadGlobal()
+  NumChannels = 0
+  
+!!$  m=0
+!!$  call CalcNumChannels(0,1)
+!!$  DP%lmax = lmax
+!!$  call AllocateDP(DP,NumChannels)
+!!$  call MakeDipoleDipoleCouplingMatrix(DP) 
+!!$
+!!$!stop 
+!!$  allocate(VPot(NumChannels,NumChannels,0:PointsPerBox))
+!!$  allocate(x(0:PointsPerBox))
+!!$  allocate(BoxGrid(NumBoxes+1))
+!!$  call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"quadratic")
+!!$ 
+!!$  DO iBox=1,NumBoxes
+!!$     VPot=0d0
+!!$     x=0d0
+!!$     call SetDipoleDipolePot(VPot,DP,PointsPerBox,x,BoxGrid(iBox),BoxGrid(iBox+1),NumChannels,m,lmax)
+!!$     !call PlotPot(Vpot,x,NumChannels,PointsPerBox,2,2,15)
+!!$  END DO
+!!$ 
+!!$ stop 
 
-  allocate(VPot(NumChannels,NumChannels,0:PointsPerBox))
-  allocate(BoxGrid(NumBoxes+1))
-  allocate(yin(NumChannels,NumChannels),yout(NumChannels,NumChannels))
-  allocate(x(0:PointsPerBox))
-  allocate(Egrid(NumE))
 
-  call AllocateScat(SD,NumChannels)
-  call InitMorse(M)
-  call GridMaker(Egrid,NumE,M%Eth(2)+0.001d0,M%Eth(3)-0.001d0,"linear")
-  call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"linear")
-  call printmatrix(BoxGrid,NumBoxes+1,1,6)
+ allocate(sigmatot(0:lmax,NumE))
+ allocate(Egrid(NumE))
+ allocate(sigmagrandtotal(NumE))
+ allocate(x(0:PointsPerBox))
+ allocate(BoxGrid(NumBoxes+1))
+ call GridMaker(Egrid,NumE,Emin,Emax,"log")
+ call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"linear")
+ !call printmatrix(BoxGrid,NumBoxes+1,1,6)
+
+ Do m=0,lmax-1
+  !m = 0
+      call CalcNumChannels(m,1)
+      !write(6,*) NumChannels, m
+      DP%lmax = lmax 
+      call AllocateDP(DP,NumChannels)
+      call MakeDipoleDipoleCouplingMatrix(DP)
+      allocate(VPot(NumChannels,NumChannels,0:PointsPerBox))
+      allocate(yin(NumChannels,NumChannels),yout(NumChannels,NumChannels))
+      call AllocateScat(SD,NumChannels)
+
      
-  call initprop  ! sets the weights and the initial Y matrix.
-  call cpu_time(time1)
-!  write(6,"(3A15)") "energy","sigma","time"
-  do iE = 1,NumE
-     Energy = Egrid(iE)
-     yin = ystart
-     do iBox=1,NumBoxes
-        !write(6,*) "calling set morse"
-        VPot = 0d0
-        x=0d0
+      call initprop ! sets the weights and the initial Y matrix.
+     ! call cpu_time(time1)
+        !  write(6,"(3A15)") "energy","sigma","time")
+        DO iE = 1,NumE
+           Energy = Egrid(iE)
+           yin = ystart
+           DO iBox=1,NumBoxes
+              !write(6,*) "calling set morse"
+              VPot = 0d0
+              x=0d0
+ 
+              call SetDipoleDipolePot(VPot,DP,PointsPerBox,x,BoxGrid(iBox),BoxGrid(iBox+1),NumChannels,m,lmax)
+              
+              call boxstep(x,yin,yout,VPot,iBox,NumBoxes)
+              yin = yout
+           END DO
 
-        call SetMorsePotential(VPot,M,PointsPerBox,x,BoxGrid(iBox),BoxGrid(iBox+1))
-        ! write(6,*) "calling boxstep"
+           call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,DP%Eth,NumChannels,NumChannels,DP%lam)
+!!$           call printmatrix(SD%K,NumChannels,NumChannels,6)
+!!$           call printmatrix(SD%T,NumChannels,NumChannels,6)
+           sigmatot(m,iE) = sum(SD%sigma)
+!!$           write(10,*) Energy, sigmatot(m,iE)
+!!$           WRITE(6,*)  Energy, sigmatot(m,iE)
+        END DO
+       
+        deallocate(VPot)
+        deallocate(yin)
+        deallocate(yout)
+        call DeallocateDP(DP)
+        call DeAllocateScat(SD)
+        Call DeallocateProp
+ 
 
-        call boxstep(x,yin,yout,VPot,iBox,NumBoxes)
-        yin = yout
-     enddo
-     call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,M%Eth,NumChannels,NumChannels)
-     SD%sigmatot(0) = sum(SD%sigma)
-     write(10,*) Energy, SD%K(1,1), SD%K(1,2), SD%K(2,1), SD%K(2,2)
-     WRITE(6,"(5D15.6)")  Energy, SD%K(1,1), SD%K(1,2), SD%K(2,1), SD%K(2,2)
-  enddo
-  call cpu_time(time2)
-  write(6,*) "total time for calculation = ", time2-time1
+ END DO
+
+ sigmagrandtotal = 0
+ DO iE=1,NumE
+    Energy = Egrid(iE) 
+    DO m = 1,lmax-1
+       sigmagrandtotal(iE)=sigmagrandtotal(iE)+sigmatot(m,iE)
+    END DO
+    sigmagrandtotal(iE)=2*sigmagrandtotal(iE)
+    sigmagrandtotal(iE)=sigmagrandtotal(iE)+sigmatot(0,iE)
+   Write(6,*) Energy, sigmagrandtotal(iE)
+   WRITE(20,*) Energy, sigmagrandtotal(iE)
+ END DO
+
+  
+  !call cpu_time(time2)
+  !write(6,*) "total time for calculation = ", time2-time1
 end program
 !=========================================================================================
 !=========================================================================================

@@ -1,9 +1,9 @@
-MODULE DipoleDipole
+MODULE DipoleDipole 
   TYPE DPData
      INTEGER lmax,ml
      DOUBLE PRECISION, ALLOCATABLE :: cllp(:,:,:)
      DOUBLE PRECISION, ALLOCATABLE :: Eth(:)
-     DOUBLE PRECISION, ALLOCATABLE :: lam(:,:)
+     DOUBLE PRECISION, ALLOCATABLE :: lam(:)
      LOGICAL even
   END TYPE DPData
 
@@ -14,7 +14,7 @@ CONTAINS
     TYPE(DPData) DP
     ALLOCATE(DP%cllp(0:DP%lmax,0:DP%lmax,0:DP%lmax))
     ALLOCATE(DP%Eth(N))
-    ALLOCATE(DP%lam(N,2))
+    ALLOCATE(DP%lam(N))
 
   END SUBROUTINE AllocateDP
 
@@ -28,7 +28,7 @@ CONTAINS
     DP%Eth=0d0
     DP%cllp=0d0
     DO l=0,DP%lmax
-       DO lp=MAX(l-2,0),MIN(DP%lmax,l+2),2
+       DO lp=Max(l-2,0),Min(DP%lmax,l+2)
           prefact=DBLE((2*l+1)*(2*lp+1))
           prefact=dsqrt(prefact)
           DO m = 0,l
@@ -37,56 +37,119 @@ CONTAINS
              tj2 = THRJ(2*l,2*2,2*lp,0,0,0)
              DP%cllp(l,lp,m)=prefact*phase*tj1*tj2
              DP%cllp(lp,l,m)=DP%cllp(l,lp,m)
+             
+            !Write(1000,*) l, lp, m,  DP%cllp(l,lp,m)
           ENDDO
        ENDDO
     ENDDO
 
   END SUBROUTINE MakeDipoleDipoleCouplingMatrix
-  !
-  ! SUBROUTINE SetDipoleDipolePot(BPD,DP)
-  !
-  !   IMPLICIT NONE
-  !   TYPE(BPData) BPD
-  !   TYPE(DPData) DP
-  !   INTEGER m,l,lp
-  !   INTEGER kx,lx,mch,nch,NChan
-  !   DOUBLE PRECISION ax,bx,xScaledZero
-  !   DOUBLE PRECISION xScale(BPD%xNumPoints)
-  !
-  !   NChan = BPD%NumChannels
-  !   ! IF(MOD(DP%lmax,2).EQ.0) THEN
-  !   !    Nchan=DP%lmax/2
-  !   ! ELSE
-  !   !    Nchan=(DP%lmax-1)/2
-  !   ! ENDIF
-  !
-  !   BPD%Pot(:,:,:,:) = 0d0
-  !
-  !   DO kx = 1,BPD%xNumPoints-1
-  !      ax = BPD%xPoints(kx)
-  !      bx = BPD%xPoints(kx+1)
-  !      xScale(kx) = 0.5d0*(bx-ax)
-  !      xScaledZero = 0.5d0*(bx+ax)
-  !      DO lx = 1,LegPoints
-  !         BPD%x(lx,kx) = xScale(kx)*xLeg(lx) + xScaledZero
-  !         DO mch = 1,NChan
-  !            DO nch = 1, mch
-  !               IF(DP%even) THEN
-  !                  l=2*(mch-1) ! l = 0, 2, 4, ...
-  !                  lp=2*(nch-1) ! l' = 0, 2, 4, ...
-  !               ELSE
-  !                  l=2*(mch-1)+1 ! l = 1, 3, 5, ...
-  !                  lp=2*(nch-1)+1 ! l' = 1, 3, 5, ...
-  !               ENDIF
-  !               BPD%Pot(mch,nch,lx,kx) = -2d0*DP%Cllp(l,lp,DP%ml)/BPD%x(lx,kx)**3
-  !               IF(mch.EQ.nch) BPD%Pot(mch,nch,lx,kx) = BPD%Pot(mch,nch,lx,kx) + 0.5d0*l*(l+1)/BPD%x(lx,kx)**2
-  !               BPD%Pot(nch,mch,lx,kx) = BPD%Pot(mch,nch,lx,kx)
-  !               !write(6,*) BPD%x(lx,kx), BPD%Pot(mch,nch,lx,kx)
-  !            ENDDO
-  !         ENDDO
-  !      ENDDO
-  !   ENDDO
-  !
-  !
-  ! END SUBROUTINE SetDipoleDipolePot
+    
+
+  SUBROUTINE DeallocateDP(DP)
+    IMPLICIT NONE
+    TYPE(DPData) DP
+    DEALLOCATE (DP%Eth,DP%cllp,DP%lam)
+  END SUBROUTINE DeallocateDP
+
+
+  SUBROUTINE SetDipoleDipolePot(VPot,DP,NPTS,x,x1,x2,Nchan,m,lmax)
+  
+    IMPLICIT NONE
+    TYPE(DPData) DP
+    INTEGER, INTENT(IN) :: m,lmax, Nchan,NPTS
+    INTEGER lp,l1
+    INTEGER kx, mch, nch,j
+    DOUBLE PRECISION x(0:NPTS), x1, x2, dx, VPot(Nchan,Nchan,0:NPTS)
+
+    lp=0
+    l1=0
+    VPot=0d0
+    x=0d0
+    dx = (x2-x1)/DBLE(NPTS)
+    If(mod(m,2).eq.0)then 
+       Do kx=0,NPTS
+          x(kx) = x1 + kx*dx
+          mch = 1
+          Do l1 = m+1,lmax-1, 2
+           nch = 1
+           DP%lam(mch) = l1
+           Do lp = m+1,lmax-1, 2
+             If(mch.EQ.nch)THEN
+                VPot(mch,nch,kx)=-2d0*DP%cllp(l1,lp,m)/x(kx)**3 + 0.50*l1*(l1+1)/x(kx)**2
+             Else 
+                VPot(mch, nch, kx) = -2d0*DP%cllp(l1,lp,m)/x(kx)**3
+                VPot(nch,mch,kx) = VPot(mch,nch,kx)
+             End if
+            ! Write(25,*)  l1,lp,m, Vpot(mch,nch,kx)
+             nch = nch + 1
+          End do
+          mch = mch + 1
+       End do
+    End do
+ Else
+    Do kx=0,NPTS
+          x(kx) = x1 + kx*dx
+          mch = 1
+          Do l1 = m,lmax-1, 2
+           nch = 1
+           DP%lam(mch) = l1
+           Do lp = m,lmax-1, 2
+             If(mch.EQ.nch)THEN
+                VPot(mch,nch,kx)=-2d0*DP%cllp(l1,lp,m)/x(kx)**3 + 0.50*l1*(l1+1)/x(kx)**2
+             Else 
+                VPot(mch, nch, kx) = -2d0*DP%cllp(l1,lp,m)/x(kx)**3
+                VPot(nch,mch,kx) = VPot(mch,nch,kx)
+             End if
+            ! Write(25,*)  l1,lp,m, Vpot(mch,nch,kx)
+             nch = nch + 1
+          End do
+          mch = mch + 1
+       End do
+    End do
+ end if
+
+!!$    lp=0
+!!$    l1=0
+!!$    VPot=0d0
+!!$    x=0d0
+!!$    dx = (x2-x1)/DBLE(NPTS)
+!!$    Do kx=0,NPTS
+!!$       x(kx) = x1 + kx*dx
+!!$       mch = 1
+!!$       Do l1 = m,lmax, 2
+!!$           nch = 1
+!!$           Do lp = m,lmax, 2
+!!$             If(mch.EQ.nch)THEN
+!!$                VPot(mch,nch,kx)=-2d0*DP%cllp(l1,lp,m)/x(kx)**3 + 0.50*l1*(l1+1)/x(kx)**2
+!!$             Else 
+!!$                VPot(mch, nch, kx) = -2d0*DP%cllp(l1,lp,m)/x(kx)**3
+!!$                VPot(nch,mch,kx) = VPot(mch,nch,kx)
+!!$             End if
+!!$             Write(25,*)  l1,lp,m, Vpot(mch,nch,kx)
+!!$             nch = nch + 1
+!!$          End do
+!!$          mch = mch + 1
+!!$       End do
+!!$    End do
+
+
+
+  END SUBROUTINE SetDipoleDipolePot
+
+  SUBROUTINE PlotPot(VPot,x,Nchan,NPTS,i,j,file)
+    IMPLICIT NONE
+    INTEGER i,j,NPTS,Nchan,file,xi
+    DOUBLE PRECISION VPot(Nchan,Nchan,0:NPTS),x(0:NPTS)
+    
+    Do xi = 0, NPTS
+       Write(file,*)  x(xi), VPot(i,j,xi)
+    End Do 
+
+  END SUBROUTINE PlotPot
+       
+
+    
+
+
 END MODULE DipoleDipole
