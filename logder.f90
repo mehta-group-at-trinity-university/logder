@@ -262,7 +262,6 @@ CONTAINS
    enddo
    call sqrmatinv(Ktemp1,NumChannels)
    SD%K = -MATMUL(Ktemp1,Ktemp2)
-   
 
    tmp = Identity(1:no,1:no) - II*SD%K(1:no,1:no)
  
@@ -330,11 +329,13 @@ program main
  allocate(x(0:PointsPerBox))
  allocate(BoxGrid(NumBoxes+1))
  call GridMaker(Egrid,NumE,Emin,Emax,"log")
- call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"linear")
+! call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"linear")
+ call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"quadratic")
  !call printmatrix(BoxGrid,NumBoxes+1,1,6)
-
+ write(6,*) "lmax = ", lmax
  Do m=0,lmax-1
-  !m = 0
+    !m = 0
+    write(6,*) "doing calculation for m = ",m
       call CalcNumChannels(m,1)
       !write(6,*) NumChannels, m
       DP%lmax = lmax 

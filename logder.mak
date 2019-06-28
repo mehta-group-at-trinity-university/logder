@@ -1,11 +1,11 @@
 CMP = gfortran
-CMPFLAGS = -ffixed-line-length-132 -O3 -fdec
+CMPFLAGS = -ffixed-line-length-132 -O4 -fdec
 DEBUG   = -fcheck=all
 FORCEDP = #-fdefault-real-8 -fdefault-double-8
 INCLUDE = -I/usr/local/opt/lapack/include
 LAPACK =  -framework accelerate
 ARPACK = -L/Users/mehtan/Code/ARPACK/ARPACK -larpack_OSX
-OBJS = DataStructures.o besselnew.o matrix_stuff.o zgensub.o MorsePotential.o logder.o
+OBJS = DataStructures.o besselnew.o matrix_stuff.o zgensub.o MorsePotential.o DipoleDipole.o logder.o
 
 logder.x:	   ${OBJS}
 	${CMP} ${DEBUG} ${OBJS} ${INCLUDE} ${ARPACK} ${LAPACK} ${CMPFLAGS} ${FORCEDP} -o logder.x
@@ -33,6 +33,12 @@ MorsePotential.mod: MorsePotential.o
 
 MorsePotential.o: MorsePotential.f90
 	${CMP} ${FORCEDP} -c MorsePotential.f90
+
+DipoleDipole.mod: DipoleDipole.o
+	${CMP} ${FORCEDP} DipoleDipole.o
+
+DipoleDipole.o: DipoleDipole.f90
+	${CMP} ${FORCEDP} -c DipoleDipole.f90
 
 DataStructures.mod: DataStructures.o
 	${CMP} ${FORCEDP} DataStructures.o
