@@ -1,4 +1,6 @@
-c!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+c
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c! this subroutine calculates the hyperspherical besselfunctions multiplied by x**alpha
 c!     rj = (x**alpha*hypj)
 c!     rjp = alpha*x**(alpha-1)*hypj + x**alpha*hypjp
@@ -11,16 +13,19 @@ c!
       double precision hypj,hypy,hypjp,hypyp
       double precision rj,rjp, ry, ryp
       double precision order,prefact
+      integer dfact(12)
+      dfact = (/1, 2, 3, 8, 15, 48, 105, 384, 945, 3840, 10395, 46080/)
       halfd=0.5d0*dble(d)
       order = halfd + lam - 1d0
-      call doubfact(d-4,df)
-!write(6,*) "order=",order, halfd, lam, d
-
-      if (x.le.10d0*order**2) then
-         call bessjy(x,order,j,y,jp,yp)
-      else
-         call BesselAsymNew(order,x,j,y,jp,yp)
-      endif
+!     call doubfact(d-4,df)
+!     write(6,*) "order=",order, halfd, lam, d
+      df=1
+      if((d-4).gt.1) df = dfact(d-4)
+!      if (x.le.10d0*order**2) then
+      call bessjy(x,order,j,y,jp,yp)
+!      else
+!         call BesselAsymNew(order,x,j,y,jp,yp)
+!      endif
       
       !call bessjy(x,order,j,y,jp,yp)
       prefact = mygamma(halfd-1.d0)*2**(halfd-2d0)/df
@@ -71,10 +76,12 @@ c! This is a subroutine that returns the hyperspherical bessel functions as defi
       order = halfd + lam - 1d0
       df=1
       if((d-4).gt.1) df = dfact(d-4)
-
+c!-----------------------------------------------------------------------
+c!     Here, we assume the form:      
 c!     Inu(x) = exp(x) * alpha(x)
 c!     Knu(x) = exp(-x) * beta(x)
-c!     This routine returns alpha, beta, alpha', beta', I'/I, and K'/K
+c     !     This routine returns alpha, beta, alpha', beta', I'/I, and K'/K
+c!-----------------------------------------------------------------------      
       call MyScaledBessIK(x, order, ai, bk, aip, bkp, ldi,ldk)
 
       prefact = mygamma(halfd-1.d0)*2**(halfd-2d0)/df

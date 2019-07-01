@@ -191,6 +191,8 @@ CONTAINS
    double precision, allocatable :: Ktemp1(:,:),Ktemp2(:,:)
    DOUBLE PRECISION rhypj,rhypy,rhypjp,rhypyp,Pi,rhypi,rhypk,rhypip,rhypkp,ldrhk,ldrhi
    DOUBLE PRECISION k(NumChannels),Eth(NumChannels),lam(NumChannels)
+   double precision rj, drj, ry, dry
+   double precision ri, dri, rk, drk, ldi, ldk
    complex*16, allocatable :: tmp(:,:),Identity(:,:)
    complex*16  II
    INTEGER i,j,NumOpen,Numchannels,no, nw, nc, beta
@@ -233,20 +235,29 @@ CONTAINS
    DO i = 1,no
       Identity(i,i) = 1d0
       !write(6,*) k(i), rm
-      CALL hyperrjry(INT(d),alpha,lam(i),k(i)*rm,rhypj,rhypy,rhypjp,rhypyp)  
+      CALL hyperrjry(INT(d),alpha,lam(i),k(i)*rm,rhypj,rhypy,rhypjp,rhypyp)
+!      call fdfgdg(lam(i),k(i),rm,rj,drj,ry,dry)
+!!$      JJ(i) = rj
+!!$      NN(i) = -ry
+!!$      JJP(i) = drj
+!!$      NNP(i) = -dry
       JJ(i) = rhypj/dsqrt(Pi*k(i))
       NN(i) = -rhypy/dsqrt(Pi*k(i))
       JJp(i) = dsqrt(k(i)/Pi)*rhypjp
       NNp(i) = -dsqrt(k(i)/Pi)*rhypyp
    ENDDO
-   do i=no+1,NumChannels
+   do i=no+1,NumChannels  !These should never be getting called for this dipole dipole calculation anyhow.  Be careful with other calculations.
       Identity(i,i) = 1d0
       CALL hyperrirk(INT(d),alpha,lam(i),k(i)*rm,rhypi,rhypk,rhypip,rhypkp,ldrhi,ldrhk)
       JJ(i) = 1d0
       NN(i) = -1d0
       JJp(i) = ldrhi
       NNp(i) = ldrhk
-
+!!$      call bfdfgdg(lam(i),k(i),rm,k(i),ri,dri,rk,drk,ldi,ldk) ! really x*sphbes
+!!$      JJ(i) = ri!1d0
+!!$      NN(i) = -rk!-1d0
+!!$      JJP(i) = dri!ldi
+!!$      NNP(i) = -drk!ldk
    ENDDO
 
    Ktemp1=0d0
@@ -294,8 +305,9 @@ program main
   double precision, allocatable :: VPot(:,:,:),sigmagrandtotal(:),sigmatot(:,:)
   double precision, allocatable :: BoxGrid(:)
   double precision, allocatable :: x(:),yin(:,:),yout(:,:),Egrid(:)
-  double precision time1, time2
+  double precision time1, time2,rj,drj,ry,dry,Pi
   integer iBox,ml,iE,m
+  Pi = dacos(-1d0)
   call Setupam
   InputFile = 'logder.inp'
   call ReadGlobal()
@@ -322,16 +334,18 @@ program main
 !!$ 
 !!$ stop 
 
-
+!  call testbessik
+!  stop
  allocate(sigmatot(0:lmax,NumE))
  allocate(Egrid(NumE))
  allocate(sigmagrandtotal(NumE))
  allocate(x(0:PointsPerBox))
  allocate(BoxGrid(NumBoxes+1))
  call GridMaker(Egrid,NumE,Emin,Emax,"log")
-! call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"linear")
- call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"quadratic")
- !call printmatrix(BoxGrid,NumBoxes+1,1,6)
+ call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"linear")
+! call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"quadratic")
+! call printmatrix(BoxGrid,NumBoxes+1,1,6)
+! stop
  write(6,*) "lmax = ", lmax
  Do m=0,lmax-1
     !m = 0
@@ -347,46 +361,59 @@ program main
 
      
       call initprop ! sets the weights and the initial Y matrix.
-     ! call cpu_time(time1)
-        !  write(6,"(3A15)") "energy","sigma","time")
-        DO iE = 1,NumE
-           Energy = Egrid(iE)
-           yin = ystart
-           DO iBox=1,NumBoxes
-              !write(6,*) "calling set morse"
-              VPot = 0d0
-              x=0d0
- 
-              call SetDipoleDipolePot(VPot,DP,PointsPerBox,x,BoxGrid(iBox),BoxGrid(iBox+1),NumChannels,m,lmax)
-              
-              call boxstep(x,yin,yout,VPot,iBox,NumBoxes)
-              yin = yout
-           END DO
+      ! call cpu_time(time1)
+      !  write(6,"(3A15)") "energy","sigma","time")
+      DO iE = 1,NumE
+         Energy = Egrid(iE)
+         yin = ystart
+         DO iBox=1,NumBoxes
+            !write(6,*) "calling set morse"
+            VPot = 0d0
+            x=0d0
+            
+            call SetDipoleDipolePot(VPot,DP,PointsPerBox,x,BoxGrid(iBox),BoxGrid(iBox+1),NumChannels,m,lmax)
+            
+            call boxstep(x,yin,yout,VPot(:,:,1:PointsPerBox),iBox,NumBoxes)
+            yin = yout
+         END DO
+         
+         call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,DP%Eth,NumChannels,NumChannels,DP%lam)
 
-           call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,DP%Eth,NumChannels,NumChannels,DP%lam)
-!!$           call printmatrix(SD%K,NumChannels,NumChannels,6)
+         !         write(6,*) "K:"
+!         call printmatrix(SD%K,NumChannels,NumChannels,6)
+!         write(6,*) "Y:"
+!         call printmatrix(yout,NumChannels,NumChannels,6)
+!         write(6,*) INT(EFFDIM),ALPHAFACTOR,DP%lam(1),dsqrt(2d0*mu*Energy)*BoxGrid(NumBoxes+1)
+!         write(6,*)
+!         CALL hyperrjry(INT(EFFDIM),ALPHAFACTOR,DP%lam(1),dsqrt(2d0*mu*Energy)*BoxGrid(NumBoxes+1),rj,ry,drj,dry)
+!         rj = rj/dsqrt(Pi*dsqrt(2d0*mu*Energy))
+!         drj = drj*dsqrt(dsqrt(2d0*mu*Energy)/Pi)
+         !call fdfgdg(INT(DP%lam(1)),dsqrt(2d0*mu*Energy),BoxGrid(NumBoxes+1),rj,drj,ry,dry)
+         
+!         write(6,*) Energy, rj, ry, drj, dry, drj/rj
+!         stop
 !!$           call printmatrix(SD%T,NumChannels,NumChannels,6)
-           sigmatot(m,iE) = sum(SD%sigma)
+         sigmatot(m,iE) = sum(SD%sigma)
 !!$           write(10,*) Energy, sigmatot(m,iE)
 !!$           WRITE(6,*)  Energy, sigmatot(m,iE)
-        END DO
-       
-        deallocate(VPot)
-        deallocate(yin)
-        deallocate(yout)
-        call DeallocateDP(DP)
-        call DeAllocateScat(SD)
-        Call DeallocateProp
- 
-
- END DO
-
- sigmagrandtotal = 0
- DO iE=1,NumE
-    Energy = Egrid(iE) 
-    DO m = 1,lmax-1
-       sigmagrandtotal(iE)=sigmagrandtotal(iE)+sigmatot(m,iE)
-    END DO
+      END DO
+      
+      deallocate(VPot)
+      deallocate(yin)
+      deallocate(yout)
+      call DeallocateDP(DP)
+      call DeAllocateScat(SD)
+      Call DeallocateProp
+      
+      
+   END DO
+   
+   sigmagrandtotal = 0
+   DO iE=1,NumE
+      Energy = Egrid(iE) 
+      DO m = 1,lmax-1
+         sigmagrandtotal(iE)=sigmagrandtotal(iE)+sigmatot(m,iE)
+      END DO
     sigmagrandtotal(iE)=2*sigmagrandtotal(iE)
     sigmagrandtotal(iE)=sigmagrandtotal(iE)+sigmatot(0,iE)
    Write(6,*) Energy, sigmagrandtotal(iE)
@@ -449,6 +476,101 @@ SUBROUTINE printmatrix(M,nr,nc,file)
   ENDDO
 
 20 FORMAT(1P,100D20.12)
-30 FORMAT(1p,100d12.4)
+30 FORMAT(1p,100d15.7)
 END SUBROUTINE printmatrix
 !=========================================================================================
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+subroutine fdfgdg(L,k,r,f,df,g,dg) ! returns the oscillatory Riccati functions and their radial derivatives.
+!  use modb
+  implicit none
+  integer L
+  double precision k, r, f, df, g, dg, nu, x, factor
+  double precision J, dJ, RTPIO2, Y, dY
+  PARAMETER (RTPIO2=1.25331413731550d0)
+
+  x = k*r
+  if(L.lt.0.d0.or.x.le.0.d0) write(6,*) 'bad arguments in sphbesjy'
+
+  nu=L+0.5d0
+!  write(6,*) "k, r:", k, r
+  call bessjy(x,nu,J,Y,dJ,dY)
+  factor=RTPIO2*sqrt(x)
+  f=factor*J
+  g=factor*Y
+  df=k*factor*(dJ+J/(2.d0*x))
+  dg=k*factor*(dY+Y/(2.d0*x))
+  
+end subroutine fdfgdg
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+subroutine bfdfgdg(L,k,r,xscale,f,df,g,dg,ldi,ldk) ! returns the exponential-type Riccati functions and their radial derivatives.
+!  use modb
+  implicit none
+  integer L
+  double precision k, r, f, df, g, dg, nu,xscale
+  double precision RTPIO2, RT2OPI, factor, x
+  double precision alpha, beta, alphap, betap, ldi, ldk
+  PARAMETER (RTPIO2=1.25331413731550d0) 
+      PARAMETER (RT2OPI=0.7978845608028654d0)
+      x=k*r
+      if(L.lt.0.d0.or.x.le.0.d0) then
+         write(6,*) 'bad arguments in sphbesik, (L, x) = ', L, x
+      endif
+  nu = L + 0.5d0
+  call MyScaledBessIK(x, nu, alpha, beta, alphap, betap, ldi,ldk)
+  factor=RT2OPI*sqrt(x)
+
+  f = factor*exp(x-xscale)*alpha
+  df = k*factor*exp(x-xscale)*( alpha*(1.d0 + 1.d0/(2d0*x)) + alphap )
+
+  g = factor*exp(xscale-x)*beta
+  dg = k*factor*exp(xscale-x)*( beta*(-1.d0 + 1.d0/(2.d0*x)) + betap )
+  !  ldi = (alphap/alpha + 1.d0 + 1.d0/(2.d0*x))*k
+  !  ldk = (betap/beta - 1.d0 + 1.d0/(2.d0*x))*k
+
+  ldi = df/f 
+  ldk = dg/g
+  
+end subroutine bfdfgdg
+!cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+subroutine testbessik
+  implicit none
+  real*8 ri,rk,dri,drk, x, dx, ldi, ldk,xscale,nu0, r, k
+  real*8 si, sk, sip, skp, alpha, beta, alphap, betap
+  real*8 v, vm,pi,xinit,xfinal,f,df,g,dg
+  complex*16, allocatable :: YCI(:), YCK(:), YDI(:), YDK(:)
+!  complex*16 z
+  integer ixtot, L, ix
+  pi = acos(-1.d0)
+  !write(6,*) 'pi = ',pi
+
+  L=3
+  nu0 = 0.5d0
+  xinit=0.001d0
+  xfinal=100.d0
+  ixtot=1000
+  dx=(xfinal-xinit)/dble(ixtot-1)
+
+  xscale = 0.d0
+  
+!  write(6,*) dx, ixtot
+!  read(*,*)
+  !  x=0.0d0
+  k = 1.d0
+
+  do ix = 1, ixtot
+     x = xinit + (ix-1)*dx
+     r = x/k
+     !CALL hyperrjry(INT(EFFDIM),ALPHAFACTOR,DP%lam(2),dsqrt(2d0*mu*Energy)*BoxGrid(NumBoxes+1),rj,ry,drj,dry)
+!     xscale = x
+     !     call Mysphbesik(L,x,xscale,si,sk,sip,skp,ldk,ldi) ! really x*sphbes
+!     call bfdfgdg(L,k,r,xscale,ri,dri,rk,drk,ldi,ldk) ! really x*sphbes
+     call fdfgdg(L,k,r,f,df,g,dg) ! returns the oscillatory Riccati functions and their radial derivatives.
+!     call sphbesik(L,x,si,sk,sip,skp) ! really x*sphbes
+     !     write(6,10) x, ri, dri, rk, drk, ldi, ldk, f, df, g, dg
+!     write(30,10) r, f, df, g, dg
+     write(30,10) r, dg
+     
+  end do
+
+10 format(100e24.14)
+end subroutine testbessik
