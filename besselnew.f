@@ -21,11 +21,11 @@ c!
 !     write(6,*) "order=",order, halfd, lam, d
       df=1
       if((d-4).gt.1) df = dfact(d-4)
-!      if (x.le.10d0*order**2) then
-      call bessjy(x,order,j,y,jp,yp)
-!      else
-!         call BesselAsymNew(order,x,j,y,jp,yp)
-!      endif
+      if (x.le.5d3) then
+         call bessjy(x,order,j,y,jp,yp)
+      else
+         call BesselAsymNew(order,x,j,y,jp,yp)
+      endif
       
       !call bessjy(x,order,j,y,jp,yp)
       prefact = mygamma(halfd-1.d0)*2**(halfd-2d0)/df
@@ -195,7 +195,9 @@ c!     This routine returns alpha, beta, alpha', beta', I'/I, and K'/K
       double precision RT2OPI,bigk, bigi, bigkp, bigip
       PARAMETER (RTPIO2=1.25331413731550d0)
       PARAMETER (RT2OPI=0.7978845608028654d0)
-      if(n.lt.0.d0.or.x.le.0.d0) write(6,*) 'bad arguments in sphbesik, (n, x) = ', n, x
+      if(n.lt.0.d0.or.x.le.0.d0) then
+         write(6,*) 'bad arguments in sphbesik, (n, x) = ', n, x
+      endif
       order=n+0.5d0
 
 c$$$  call bessik(x,order,ri,rk,rip,rkp)
