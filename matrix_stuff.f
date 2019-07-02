@@ -22,6 +22,7 @@
       integer, allocatable :: ipiv(:)
       double precision, allocatable :: work(:)
       double precision A(N,N)
+
       allocate(ipiv(N))
       call dgetrf(N, N, A, N, ipiv, info)
       allocate(work(1))

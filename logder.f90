@@ -140,8 +140,8 @@ contains
     h=xx(2)-xx(1)
 
     yprevious = yi
-    weights(PointsPerBox)=2d0
-    if(iBox.eq.NumBoxes) weights(PointsPerBox)=1d0
+!    weights(PointsPerBox)=2d0
+!    if(iBox.eq.NumBoxes) weights(PointsPerBox)=1d0
     
     do step = 1, PointsPerBox
        !write(6,*) weights(step)
@@ -231,16 +231,17 @@ CONTAINS
    allocate(Ktemp2(NumChannels,NumChannels))
    allocate(Identity(NumChannels,NumChannels))
    Identity = 0d0;
-
+!   write(6,*) "lam = ",lam
    DO i = 1,no
       Identity(i,i) = 1d0
       !write(6,*) k(i), rm
 !      CALL hyperrjry(INT(d),alpha,lam(i),k(i)*rm,rhypj,rhypy,rhypjp,rhypyp)
-      call fdfgdg(lam(i),k(i),rm,rj,drj,ry,dry)
+      call fdfgdg(int(lam(i)),k(i),rm,rj,drj,ry,dry)
       JJ(i) = rj
       NN(i) = ry
       JJP(i) = drj
       NNP(i) = dry
+!      write(6,*) "JP/J",JJP(i)/JJ(i)
 !!$      JJ(i) = rhypj/dsqrt(Pi*k(i))
 !!$      NN(i) = -rhypy/dsqrt(Pi*k(i))
 !!$      JJp(i) = dsqrt(k(i)/Pi)*rhypjp
@@ -253,20 +254,25 @@ CONTAINS
 !!$      NN(i) = -1d0
 !!$      JJp(i) = ldrhi
 !!$      NNp(i) = ldrhk
-      call bfdfgdg(lam(i),k(i),rm,k(i),ri,dri,rk,drk,ldi,ldk) ! really x*sphbes
+      call bfdfgdg(int(lam(i)),k(i),rm,k(i),ri,dri,rk,drk,ldi,ldk) ! really x*sphbes
       JJ(i) = 1d0
       NN(i) = 1d0
       JJP(i) = ldi
       NNP(i) = ldk
+      stop
    ENDDO
-
+ !  write(6,*) "In calcK"
+ !  write(6,*) "Y(1,1)",Y(1,1)
+ !  write(6,*) "JP/J",JJP(1)/JJ(1)
    Ktemp1=0d0
    Ktemp2=0d0
    SD%K=0d0
    do i=1,NumChannels
-      Ktemp1(i,i) = -NNp(i)
-      Ktemp2(i,i) = JJp(i)
       do j=1,NumChannels
+         if (i.eq.j) then
+            Ktemp1(i,j) = -NNp(i)
+            Ktemp2(i,j) = JJp(i)
+         endif
          Ktemp1(i,j) = Ktemp1(i,j) + Y(i,j)*NN(j)
          Ktemp2(i,j) = Ktemp2(i,j) - Y(i,j)*JJ(j)
       enddo
@@ -343,11 +349,15 @@ program main
  allocate(BoxGrid(NumBoxes+1))
  call GridMaker(Egrid,NumE,Emin,Emax,"log")
  call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"linear")
-! call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"quadratic")
-! call printmatrix(BoxGrid,NumBoxes+1,1,6)
+ ! call GridMaker(BoxGrid,NumBoxes+1,xStart,xEnd,"quadratic")
+! BoxGrid(1) = xStart
+! BoxGrid(2) = 100d0
+! BoxGrid(3) = 1000d0
+! BoxGrid(4) = 20000d0
+ call printmatrix(BoxGrid,NumBoxes+1,1,6)
 ! stop
  write(6,*) "lmax = ", lmax
- Do m=0,lmax-1
+ Do m=0,lmax-1  !only go to lmax - 1 since right now we only care about the odd l values.
     !m = 0
     write(6,*) "doing calculation for m = ",m
       call CalcNumChannels(m,1)
@@ -379,23 +389,23 @@ program main
          
          call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,DP%Eth,NumChannels,NumChannels,DP%lam)
 
-         write(6,*) "K:"
-         call printmatrix(SD%K,NumChannels,NumChannels,6)
-         write(6,*) "Y:"
-         call printmatrix(yout,NumChannels,NumChannels,6)
-         itest=1
-         write(6,*) INT(EFFDIM),ALPHAFACTOR,DP%lam(itest),dsqrt(2d0*mu*Energy)*BoxGrid(NumBoxes+1)
-         write(6,*)
-         !CALL hyperrjry(INT(EFFDIM),ALPHAFACTOR,DP%lam(itest),dsqrt(2d0*mu*Energy)*BoxGrid(NumBoxes+1),rj,ry,drj,dry)
-         !rj = rj/dsqrt(Pi*dsqrt(2d0*mu*Energy))
-         !drj = drj*dsqrt(dsqrt(2d0*mu*Energy)/Pi)
-         call fdfgdg(INT(DP%lam(itest)),dsqrt(2d0*mu*Energy),BoxGrid(NumBoxes+1),rj,drj,ry,dry)
-         write(6,*) "looking at diagonal element:",itest
-         write(6,*) "Energy, bessel functions, log-der:", Energy, BoxGrid(NumBoxes+1), drj/rj
-         write(6,*) "error in log-der of channel", drj/rj - yout(itest,itest)
-         write(6,*) "... corresponding T matrix: ", SD%T(itest,itest)
-         
-         stop
+!!$         write(6,*) "K:"
+!!$         call printmatrix(SD%K,NumChannels,NumChannels,6)
+!!$         write(6,*) "Y:"
+!!$         call printmatrix(yout,NumChannels,NumChannels,6)
+!!$         itest=1
+!!$         write(6,*) INT(EFFDIM),ALPHAFACTOR,DP%lam(itest),dsqrt(2d0*mu*Energy)*BoxGrid(NumBoxes+1)
+!!$         write(6,*)
+!!$         !CALL hyperrjry(INT(EFFDIM),ALPHAFACTOR,DP%lam(itest),dsqrt(2d0*mu*Energy)*BoxGrid(NumBoxes+1),rj,ry,drj,dry)
+!!$         !rj = rj/dsqrt(Pi*dsqrt(2d0*mu*Energy))
+!!$         !drj = drj*dsqrt(dsqrt(2d0*mu*Energy)/Pi)
+!!$         call fdfgdg(INT(DP%lam(itest)),dsqrt(2d0*mu*Energy),BoxGrid(NumBoxes+1),rj,drj,ry,dry)
+!!$         write(6,*) "looking at diagonal element:",itest
+!!$         write(6,*) "Energy, bessel functions, log-der:", Energy, BoxGrid(NumBoxes+1), drj/rj
+!!$         write(6,*) "error in log-der of channel", drj/rj - yout(itest,itest)
+!!$         write(6,*) "... corresponding T matrix: ", SD%T(itest,itest)
+!!$         
+!!$         stop
 !!$           call printmatrix(SD%T,NumChannels,NumChannels,6)
          sigmatot(m,iE) = sum(SD%sigma)
 !!$           write(10,*) Energy, sigmatot(m,iE)
@@ -489,15 +499,20 @@ subroutine fdfgdg(L,k,r,f,df,g,dg) ! returns the oscillatory Riccati functions a
   implicit none
   integer L
   double precision k, r, f, df, g, dg, nu, x, factor
-  double precision J, dJ, RTPIO2, Y, dY
+  double precision J, dJ, RTPIO2, Y, dY,PI
   PARAMETER (RTPIO2=1.25331413731550d0)
-
+  PARAMETER (PI=3.1415926535897932385d0)
   x = k*r
   if(L.lt.0.d0.or.x.le.0.d0) write(6,*) 'bad arguments in sphbesjy'
 
   nu=L+0.5d0
-!  write(6,*) "k, r:", k, r
-  call bessjy(x,nu,J,Y,dJ,dY)
+  !  write(6,*) "k, r:", k, r
+  if(x.le.500d0) then
+     call bessjy(x,nu,J,Y,dJ,dY)
+  else
+     call BesselAsymNew(dble(L)+0.5d0,x,J,Y,dJ,dY)
+  endif
+  
   factor=RTPIO2*sqrt(x)
   f=factor*J
   g=factor*Y
@@ -549,8 +564,8 @@ subroutine testbessik
 
   L=1
   nu0 = 0.5d0
-  xinit=0.001d0
-  xfinal=100.d0
+  xinit=400d0
+  xfinal=600d0
   ixtot=1000
   dx=(xfinal-xinit)/dble(ixtot-1)
 
@@ -571,7 +586,8 @@ subroutine testbessik
      call fdfgdg(L,k,r,f,df,g,dg) ! returns the oscillatory Riccati functions and their radial derivatives.
 !     call sphbesik(L,x,si,sk,sip,skp) ! really x*sphbes
      !     write(6,10) x, ri, dri, rk, drk, ldi, ldk, f, df, g, dg
-     write(30,10) r, f, df, g, dg
+!     call BesselAsymNew(dble(L)+0.5d0,x,rj,ry,rjp,ryp)
+     write(30,10) r, f,df,g,dg
 !     write(30,10) r, rj,ry,rjp,ryp
      
   end do

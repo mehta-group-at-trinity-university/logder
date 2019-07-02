@@ -67,6 +67,7 @@ CONTAINS
     VPot=0d0
     x=0d0
     dx = (x2-x1)/DBLE(NPTS)
+    x(0)=x1
     If(mod(m,2).eq.0)then 
        Do kx=0,NPTS
           x(kx) = x1 + kx*dx
