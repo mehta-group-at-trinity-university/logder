@@ -193,7 +193,7 @@ CONTAINS
    DOUBLE PRECISION k(NumChannels),Eth(NumChannels),lam(NumChannels)
    double precision rj, drj, ry, dry
    double precision ri, dri, rk, drk, ldi, ldk
-   complex*16, allocatable :: tmp(:,:),Identity(:,:)
+   complex*16, allocatable :: tmp(:,:),Identity(:,:),tmp2(:,:)
    complex*16  II
    INTEGER i,j,NumOpen,Numchannels,no, nw, nc, beta,itest
 
@@ -225,7 +225,7 @@ CONTAINS
    deallocate(SD%S,SD%T,SD%sigma)
    
    allocate(SD%S(no,no),SD%T(no,no),SD%sigma(no,no))
-   ALLOCATE(JJ(NumChannels),NN(NumChannels),tmp(no,no))
+   ALLOCATE(JJ(NumChannels),NN(NumChannels),tmp(no,no),tmp2(no,no))
    ALLOCATE(JJp(NumChannels),NNp(NumChannels))
    allocate(Ktemp1(NumChannels,NumChannels))
    allocate(Ktemp2(NumChannels,NumChannels))
@@ -233,7 +233,7 @@ CONTAINS
    Identity = 0d0;
 !   write(6,*) "lam = ",lam
    DO i = 1,no
-      Identity(i,i) = 1d0
+      Identity(i,i) = (1d0,0d0)
       !write(6,*) k(i), rm
 !      CALL hyperrjry(INT(d),alpha,lam(i),k(i)*rm,rhypj,rhypy,rhypjp,rhypyp)
       call fdfgdg(int(lam(i)),k(i),rm,rj,drj,ry,dry)
@@ -248,7 +248,7 @@ CONTAINS
 !!$      NNp(i) = -dsqrt(k(i)/Pi)*rhypyp
    ENDDO
    do i=no+1,NumChannels  !These should never be getting called for this dipole dipole calculation anyhow.  Be careful with other calculations.
-      Identity(i,i) = 1d0
+      Identity(i,i) = (1d0,0d0)
 !!$      CALL hyperrirk(INT(d),alpha,lam(i),k(i)*rm,rhypi,rhypk,rhypip,rhypkp,ldrhi,ldrhk)
 !!$      JJ(i) = 1d0
 !!$      NN(i) = -1d0
@@ -280,11 +280,11 @@ CONTAINS
    call sqrmatinv(Ktemp1,NumChannels)
    SD%K = MATMUL(Ktemp1,Ktemp2)
 
-   tmp = Identity(1:no,1:no) - II*SD%K(1:no,1:no)
- 
-   SD%S = Identity(1:no,1:no) + II*SD%K(1:no,1:no)
+   tmp = Identity(1:no,1:no) + II*SD%K(1:no,1:no) 
+   tmp2 = Identity(1:no,1:no) - II*SD%K(1:no,1:no)
+   
    call CompSqrMatInv(tmp,no)
-   SD%S = MATMUL(SD%S,tmp)
+   SD%S = MATMUL(tmp,tmp2)
    SD%T = -II*0.5d0*(SD%S-Identity(1:no,1:no))
    SD%sigma = conjg(SD%T)*SD%T*Pi/(2d0*mu*EE)
 
@@ -355,8 +355,9 @@ program main
 ! BoxGrid(3) = 1000d0
 ! BoxGrid(4) = 20000d0
  call printmatrix(BoxGrid,NumBoxes+1,1,6)
-! stop
+ stop
  write(6,*) "lmax = ", lmax
+  call cpu_time(time1)
  Do m=0,lmax-1  !only go to lmax - 1 since right now we only care about the odd l values.
     !m = 0
     write(6,*) "doing calculation for m = ",m
@@ -371,7 +372,7 @@ program main
 
      
       call initprop ! sets the weights and the initial Y matrix.
-      ! call cpu_time(time1)
+
       !  write(6,"(3A15)") "energy","sigma","time")
       DO iE = 1,NumE
          Energy = Egrid(iE)
@@ -386,27 +387,28 @@ program main
             call boxstep(x,yin,yout,VPot(:,:,1:PointsPerBox),iBox,NumBoxes)
             yin = yout
          END DO
-         
+         SD%sigma = 0d0
          call CalcK(yout,BoxGrid(NumBoxes+1),SD,mu,EffDim,AlphaFactor,Energy,DP%Eth,NumChannels,NumChannels,DP%lam)
 
-!!$         write(6,*) "K:"
-!!$         call printmatrix(SD%K,NumChannels,NumChannels,6)
-!!$         write(6,*) "Y:"
-!!$         call printmatrix(yout,NumChannels,NumChannels,6)
-!!$         itest=1
-!!$         write(6,*) INT(EFFDIM),ALPHAFACTOR,DP%lam(itest),dsqrt(2d0*mu*Energy)*BoxGrid(NumBoxes+1)
-!!$         write(6,*)
-!!$         !CALL hyperrjry(INT(EFFDIM),ALPHAFACTOR,DP%lam(itest),dsqrt(2d0*mu*Energy)*BoxGrid(NumBoxes+1),rj,ry,drj,dry)
-!!$         !rj = rj/dsqrt(Pi*dsqrt(2d0*mu*Energy))
-!!$         !drj = drj*dsqrt(dsqrt(2d0*mu*Energy)/Pi)
-!!$         call fdfgdg(INT(DP%lam(itest)),dsqrt(2d0*mu*Energy),BoxGrid(NumBoxes+1),rj,drj,ry,dry)
-!!$         write(6,*) "looking at diagonal element:",itest
-!!$         write(6,*) "Energy, bessel functions, log-der:", Energy, BoxGrid(NumBoxes+1), drj/rj
-!!$         write(6,*) "error in log-der of channel", drj/rj - yout(itest,itest)
-!!$         write(6,*) "... corresponding T matrix: ", SD%T(itest,itest)
-!!$         
-!!$         stop
-!!$           call printmatrix(SD%T,NumChannels,NumChannels,6)
+         write(6,*) "K:"
+         call printmatrix(SD%K,NumChannels,NumChannels,6)
+         write(6,*) "Y:"
+         call printmatrix(yout,NumChannels,NumChannels,6)
+         itest=1
+         
+         write(6,*) INT(EFFDIM),ALPHAFACTOR,DP%lam(itest),dsqrt(2d0*mu*Energy)*BoxGrid(NumBoxes+1)
+         write(6,*)
+         !CALL hyperrjry(INT(EFFDIM),ALPHAFACTOR,DP%lam(itest),dsqrt(2d0*mu*Energy)*BoxGrid(NumBoxes+1),rj,ry,drj,dry)
+         !rj = rj/dsqrt(Pi*dsqrt(2d0*mu*Energy))
+         !drj = drj*dsqrt(dsqrt(2d0*mu*Energy)/Pi)
+         call fdfgdg(INT(DP%lam(itest)),dsqrt(2d0*mu*Energy),BoxGrid(NumBoxes+1),rj,drj,ry,dry)
+         write(6,*) "looking at diagonal element:",itest
+         write(6,*) "Energy, bessel functions, log-der:", Energy, BoxGrid(NumBoxes+1), drj/rj
+         write(6,*) "error in log-der of channel", drj/rj - yout(itest,itest)
+         write(6,*) "... corresponding T matrix: ", SD%T(itest,itest)
+!         call printmatrix(real(SD%T),NumChannels,NumChannels,6)         
+!         stop
+
          sigmatot(m,iE) = sum(SD%sigma)
 !!$           write(10,*) Energy, sigmatot(m,iE)
 !!$           WRITE(6,*)  Energy, sigmatot(m,iE)
@@ -422,7 +424,8 @@ program main
       
    END DO
    
-   sigmagrandtotal = 0
+   sigmagrandtotal = 0d0
+   
    DO iE=1,NumE
       Energy = Egrid(iE) 
       DO m = 1,lmax-1
@@ -435,8 +438,8 @@ program main
  END DO
 
   
-  !call cpu_time(time2)
-  !write(6,*) "total time for calculation = ", time2-time1
+  call cpu_time(time2)
+  write(6,*) "total time for calculation = ", time2-time1
 end program
 !=========================================================================================
 !=========================================================================================

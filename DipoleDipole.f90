@@ -76,7 +76,7 @@ CONTAINS
            nch = 1
            DP%lam(mch) = l1
            Do lp = m+1,lmax-1, 2
-             If(mch.EQ.nch)THEN
+             If(mch.EQ.nch) THEN
                 VPot(mch,nch,kx) = 0.50*l1*(l1+1)/x(kx)**2
 !                VPot(mch,nch,kx) = VPot(mch,nch,kx) - 2d0*DP%cllp(l1,lp,m)/x(kx)**3 
              Else 
